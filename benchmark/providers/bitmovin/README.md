@@ -29,8 +29,8 @@ providers:
 
 ## SDK
 
-```
-pip install bitmovin-api-sdk
+```bash
+uv add bitmovin-api-sdk
 ```
 
 ## Key documentation

@@ -28,8 +28,8 @@ providers:
 
 ## SDK
 
-```
-pip install zencoder
+```bash
+uv add zencoder
 ```
 
 - **GitHub:** https://github.com/zencoder/zencoder-py

@@ -31,8 +31,8 @@ providers:
 
 ## SDK
 
-```
-pip install boto3
+```bash
+uv add boto3
 ```
 
 ## Key documentation

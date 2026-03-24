@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
@@ -227,7 +228,6 @@ def _load_vmaf_detail(path: str | None) -> dict | None:
 
 def _count_iframes(video_path: str) -> dict | None:
     """Count I-frames in a video using ffprobe."""
-    import subprocess
     try:
         result = subprocess.run(
             [

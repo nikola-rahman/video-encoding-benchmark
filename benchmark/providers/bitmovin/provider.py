@@ -8,10 +8,37 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+from bitmovin_api_sdk import BitmovinApi, BitmovinApiLogger
+from bitmovin_api_sdk.models import (
+    HttpsInput,
+    H265VideoConfiguration,
+    Av1VideoConfiguration,
+    Av1PresetConfiguration,
+    Encoding,
+    Stream,
+    StreamInput,
+    StreamMode,
+    StreamSelectionMode,
+    EncodingOutput,
+    Mp4Muxing,
+    MuxingStream,
+    CloudRegion,
+    PresetConfiguration,
+    AclEntry,
+    AclPermission,
+    StartEncodingRequest,
+    PerTitle,
+    H265PerTitleConfiguration,
+    Av1PerTitleConfiguration,
+    Status,
+)
+
+import requests
+
 from benchmark.providers.base import Provider, EncodingResult, Rendition
+from benchmark.util.ffmpeg import get_actual_bitrate
 from benchmark.util.log import setup_logging
 from benchmark.util.s3 import get_s3_client, download_prefix, delete_prefix
-from benchmark.util.ffmpeg import get_actual_bitrate
 
 log = setup_logging("bitmovin")
 
@@ -30,7 +57,6 @@ class BitmovinProvider(Provider):
 
     def _get_api(self):
         if self._api is None:
-            from bitmovin_api_sdk import BitmovinApi, BitmovinApiLogger
             if not self.api_key:
                 log.error("Bitmovin API key not configured")
                 sys.exit(1)
@@ -56,7 +82,7 @@ class BitmovinProvider(Provider):
     def check_status(self, encoding_id: str) -> dict:
         """Check encoding status via Bitmovin API."""
         api = self._get_api()
-        from bitmovin_api_sdk.models import Status
+
 
         enc = api.encoding.encodings.get(encoding_id=encoding_id)
         resp = api.encoding.encodings.status(encoding_id=encoding_id)
@@ -75,7 +101,7 @@ class BitmovinProvider(Provider):
     def list_encodings(self, status_filter: str | None = None, limit: int = 50, all_encodings: bool = False) -> list[dict]:
         """List Bitmovin encodings."""
         api = self._get_api()
-        from bitmovin_api_sdk.models import Status
+
 
         status_map = {
             "created": Status.CREATED,
@@ -116,7 +142,7 @@ class BitmovinProvider(Provider):
     def download(self, result: EncodingResult, output_dir: Path) -> EncodingResult:
         """Download encoding outputs from S3."""
         api = self._get_api()
-        from bitmovin_api_sdk.models import Status
+
 
         encoding_id = result.encoding_id
         encoding, status_resp, streams, fmp4_muxings, mp4_muxings = self._get_encoding_details(api, encoding_id)
@@ -138,7 +164,7 @@ class BitmovinProvider(Provider):
     def download_all_finished(self, output_dir: Path, encoding_ids: list[str] | None = None) -> list[EncodingResult]:
         """Download all finished encodings. Returns list of EncodingResults with populated renditions."""
         api = self._get_api()
-        from bitmovin_api_sdk.models import Status
+
 
         if encoding_ids:
             ids_to_process = encoding_ids
@@ -274,29 +300,6 @@ class BitmovinProvider(Provider):
     # ── Private helpers ──────────────────────────────────────
 
     def _submit_encoding(self, api, video_url: str, codec_key: str) -> dict:
-        from bitmovin_api_sdk.models import (
-            HttpsInput,
-            H265VideoConfiguration,
-            Av1VideoConfiguration,
-            Av1PresetConfiguration,
-            Encoding,
-            Stream,
-            StreamInput,
-            StreamMode,
-            StreamSelectionMode,
-            EncodingOutput,
-            Mp4Muxing,
-            MuxingStream,
-            CloudRegion,
-            PresetConfiguration,
-            AclEntry,
-            AclPermission,
-            StartEncodingRequest,
-            PerTitle,
-            H265PerTitleConfiguration,
-            Av1PerTitleConfiguration,
-        )
-
         parsed = urlparse(video_url)
         host = parsed.hostname
         input_path = parsed.path
@@ -477,7 +480,6 @@ class BitmovinProvider(Provider):
         return None
 
     def _download_input_video(self, url: str, inputs_dir: Path) -> Path:
-        import requests as req
 
         parsed = urlparse(url)
         filename = os.path.basename(parsed.path)
@@ -491,7 +493,7 @@ class BitmovinProvider(Provider):
             return local_path
 
         log.info(f"  Downloading input: {filename}")
-        resp = req.get(url, stream=True)
+        resp = requests.get(url, stream=True)
         resp.raise_for_status()
 
         with open(local_path, "wb") as f:

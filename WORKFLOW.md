@@ -5,7 +5,7 @@ Step-by-step guide to benchmarking video compression quality across providers.
 ## Prerequisites
 
 ```bash
-pip install boto3 bitmovin-api-sdk python-dotenv requests pyyaml matplotlib
+uv sync
 brew install ffmpeg vmaf   # or build from source
 ```
 

@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+
 from benchmark.metadata import load_vmaf_results
 from benchmark.util.log import setup_logging
 
@@ -44,12 +46,6 @@ def run(config: dict):
 
 def plot_rate_distortion(results: list[dict], output_dir: str):
     """Plot rate-distortion curves (VMAF vs bitrate) grouped by input video."""
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        log.warning("matplotlib not installed, skipping rate-distortion plot (pip install matplotlib)")
-        return
-
     by_input = {}
     for enc in results:
         input_name = enc["input"]

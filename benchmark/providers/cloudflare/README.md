@@ -25,8 +25,8 @@ providers:
 
 ## SDK
 
-```
-pip install cloudflare
+```bash
+uv add cloudflare
 ```
 
 - **GitHub:** https://github.com/cloudflare/cloudflare-python

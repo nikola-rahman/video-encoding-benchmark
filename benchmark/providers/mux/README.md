@@ -27,8 +27,8 @@ providers:
 
 ## SDK
 
-```
-pip install mux-python
+```bash
+uv add mux-python
 ```
 
 - **GitHub:** https://github.com/muxinc/mux-python
