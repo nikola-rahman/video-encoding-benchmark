@@ -1,0 +1,66 @@
+version: "0.1"
+date: "2026-03-24"
+author: "Nikola Rahman"
+commissioned_by: "Vidaio"
+repo_url: "https://github.com/PLACEHOLDER/encoding-benchmark"
+
+# VMAF thresholds used throughout the report
+vmaf_transparent: 93
+vmaf_indistinguishable: 95
+
+# S3 storage cost assumption (USD per GB per month)
+storage_cost_per_gb_month: 0.023
+
+# Scenario for storage cost projections
+projection:
+  num_videos: 1000000
+  duration_s: 60
+  resolution: "1080p"
+
+# Provider display names (alphabetical order in all tables)
+providers:
+  - id: bitmovin
+    name: "Bitmovin"
+    blackbox: false
+  - id: cloudflare
+    name: "Cloudflare Stream"
+    blackbox: true
+  - id: mediaconvert
+    name: "AWS MediaConvert"
+    blackbox: false
+  - id: mux
+    name: "Mux"
+    blackbox: true
+  - id: vidaio
+    name: "Vidaio"
+    blackbox: false
+  - id: zencoder
+    name: "Brightcove Zencoder"
+    blackbox: false
+
+codecs:
+  - av1
+  - h265
+
+verticals:
+  - id: ecommerce
+    name: "E-Commerce"
+  - id: ugc
+    name: "UGC"
+  - id: archive
+    name: "Archives"
+  - id: education
+    name: "Education"
+
+# Input data
+data:
+  results: "data/results.csv"
+  clip_metadata: "data/clip_metadata.csv"
+  encoding_times: "data/encoding_times.csv"
+  pricing: "data/pricing.csv"
+  perframe_vmaf: "data/perframe_vmaf.csv"
+  iframe_data: "data/iframe_data.csv"
+
+# Output
+output_dir: "output"
+figures_dir: "figures"

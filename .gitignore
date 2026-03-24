@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+.DS_Store
+
+# Large data — keep directory structure via .gitkeep
+data/inputs/*
+data/outputs/*
+!data/inputs/.gitkeep
+!data/outputs/.gitkeep
+
+# Pipeline run artifacts
+data/metadata.json
+data/vmaf_results.json
+
+# Generated report artifacts
+report/output/*
+report/figures/*
+report/data/*
+!report/output/.gitkeep
+!report/figures/.gitkeep
+!report/data/.gitkeep

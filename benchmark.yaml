@@ -1,0 +1,58 @@
+data_dir: ./data
+
+inputs:
+  dir: ./data/inputs
+
+codecs: [av1, h265]
+
+storage:
+  s3:
+    endpoint: ${HIPPIUS_S3_ENDPOINT}
+    bucket: ${HIPPIUS_S3_BUCKET}
+    access_key: ${HIPPIUS_S3_ACCESS_KEY}
+    secret_key: ${HIPPIUS_S3_SECRET_KEY}
+    region: ${HIPPIUS_S3_REGION}
+    prefix: benchmark-inputs/
+    url_expiry: 604800
+
+vmaf:
+  threads: null
+  model: null
+
+providers:
+  bitmovin:
+    enabled: true
+    api_key: ${BITMOVIN_API_KEY}
+    s3_output_id: ${BITMOVIN_S3_OUTPUT_ID}
+    s3_output_base_path: encoding-benchmarks/
+    per_title:
+      max_bitrate: null
+      min_bitrate: null
+
+  vidaio:
+    enabled: true
+    # Manual provider - no credentials needed
+
+  mediaconvert:
+    enabled: false
+    region: us-east-1
+    role_arn: ${MEDIACONVERT_ROLE_ARN}
+    queue_arn: ${MEDIACONVERT_QUEUE_ARN}
+    s3_output_bucket: ${MEDIACONVERT_S3_OUTPUT_BUCKET}
+    s3_output_prefix: benchmark-outputs/
+
+  mux:
+    enabled: false
+    token_id: ${MUX_TOKEN_ID}
+    token_secret: ${MUX_TOKEN_SECRET}
+
+  cloudflare:
+    enabled: false
+    account_id: ${CLOUDFLARE_ACCOUNT_ID}
+    api_token: ${CLOUDFLARE_API_TOKEN}
+
+  zencoder:
+    enabled: false
+    api_key: ${ZENCODER_API_KEY}
+    s3_output_bucket: ${ZENCODER_S3_OUTPUT_BUCKET}
+    s3_output_prefix: benchmark-outputs/
