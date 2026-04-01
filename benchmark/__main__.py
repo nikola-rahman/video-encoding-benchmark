@@ -88,23 +88,6 @@ def cmd_export(args):
     export.run(_load_config(args), output_dir=args.output)
 
 
-def cmd_samples(args):
-    from pathlib import Path
-    raw_dir = Path(args.raw_dir)
-    output_dir = Path(args.output_dir)
-
-    if args.samples_command == "status":
-        from benchmark.samples.status import run
-        run(raw_dir, verticals=args.vertical, ids=args.id)
-    elif args.samples_command == "download":
-        from benchmark.samples.download import run
-        run(raw_dir, verticals=args.vertical, ids=args.id)
-    elif args.samples_command == "prepare":
-        from benchmark.samples.prepare import run
-        run(raw_dir, output_dir, verticals=args.vertical, ids=args.id)
-    else:
-        args.samples_parser.print_help()
-
 
 def cmd_cleanup(args):
     from benchmark.steps import cleanup
@@ -210,24 +193,6 @@ def main():
     p = subparsers.add_parser("export", help="Export results to CSV for report generation")
     p.add_argument("--output", default="report/data", help="Output directory (default: report/data)")
 
-    # samples
-    p = subparsers.add_parser("samples", help="Manage video samples (status, download, prepare)")
-    p.add_argument("--raw-dir", default="data/samples/raw", help="Raw downloads directory")
-    p.add_argument("--output-dir", default="data/inputs", help="Prepared outputs directory")
-    samples_sub = p.add_subparsers(dest="samples_command")
-
-    sp = samples_sub.add_parser("status", help="Show what's needed vs what's available")
-    sp.add_argument("--vertical", nargs="*", help="Filter by vertical")
-    sp.add_argument("--id", nargs="*", help="Filter by source ID")
-
-    sp = samples_sub.add_parser("download", help="Download auto-downloadable samples")
-    sp.add_argument("--vertical", nargs="*", help="Filter by vertical")
-    sp.add_argument("--id", nargs="*", help="Filter by source ID")
-
-    sp = samples_sub.add_parser("prepare", help="Validate and trim raw samples into inputs")
-    sp.add_argument("--vertical", nargs="*", help="Filter by vertical")
-    sp.add_argument("--id", nargs="*", help="Filter by source ID")
-
     # cleanup
     p = subparsers.add_parser("cleanup", help="Clean up remote and local resources")
     p.add_argument("--provider", help="Provider name")
@@ -256,7 +221,6 @@ def main():
         "measure": cmd_measure,
         "report": cmd_report,
         "export": cmd_export,
-        "samples": cmd_samples,
         "cleanup": cmd_cleanup,
         "run": cmd_run,
     }[args.command]
