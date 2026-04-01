@@ -87,6 +87,90 @@ sources:
 
   # ── Archives ──────────────────────────────────────────────────
 
+  - id: archive_frosted_flakes_1976
+    vertical: archive
+    name: "Kellogg's Frosted Flakes Commercial (1976)"
+    url: "https://archive.org/download/KelloggsSugarFrostedFlakesCereal1976/Kellogg%27s%20Sugar%20Frosted%20Flakes%20Cereal%20%281976%29.ogv"
+    method: http
+    license: "Public Domain"
+
+  - id: archive_desoto_1955
+    vertical: archive
+    name: "DeSoto Car Commercial (1955)"
+    url: "https://archive.org/download/DeSoto5/DeSoto5.ogv"
+    method: http
+    license: "Public Domain"
+
+  - id: archive_coke_1954
+    vertical: archive
+    name: "Coca-Cola Commercial (1954)"
+    url: "https://archive.org/download/Coke_Commercial/Coke_Commercial.ogv"
+    method: http
+    license: "Public Domain"
+
+  - id: archive_spot_news_1937
+    vertical: archive
+    name: "Spot News (1937, Newsreel)"
+    url: "https://archive.org/download/SpotNews1937/SpotNews1937.ogv"
+    method: http
+    license: "Public Domain"
+
+  - id: archive_achievement_usa_1955
+    vertical: archive
+    name: "Achievement USA (1955, Government Film)"
+    url: "https://archive.org/download/Achievem1955/Achievem1955.ogv"
+    method: http
+    license: "Public Domain"
+
+  - id: archive_experiments_1940
+    vertical: archive
+    name: "Experiments in Revival of Organisms (1940, Science)"
+    url: "https://archive.org/download/Experime1940/Experime1940.ogv"
+    method: http
+    license: "Public Domain"
+
   # ── Education ─────────────────────────────────────────────────
 
   # ── Security & Surveillance ───────────────────────────────────
+
+  - id: security_virat_001
+    vertical: security
+    name: "VIRAT S_000001"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_002
+    vertical: security
+    name: "VIRAT S_000002"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_003
+    vertical: security
+    name: "VIRAT S_000003"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_004
+    vertical: security
+    name: "VIRAT S_000004"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_006
+    vertical: security
+    name: "VIRAT S_000006"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_101
+    vertical: security
+    name: "VIRAT S_000101"
+    method: manual
+    license: "VIRAT Dataset Agreement"
+
+  - id: security_virat_102
+    vertical: security
+    name: "VIRAT S_000102"
+    method: manual
+    license: "VIRAT Dataset Agreement"
