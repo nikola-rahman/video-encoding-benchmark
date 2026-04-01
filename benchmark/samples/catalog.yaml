@@ -1,5 +1,9 @@
 # Video sample catalog for the compression benchmark.
-# Each entry defines a source video with download info and metadata.
+# Platform types:
+#   pexels      — automated via Pexels API (needs PEXELS_API_KEY)
+#   archive_org — automated via direct HTTP
+#   huggingface — automated via HuggingFace Hub
+#   manual      — user downloads and places in data/samples/raw/
 
 sources:
 
@@ -9,73 +13,57 @@ sources:
     vertical: ecommerce
     name: "Shoe Spinning Around"
     platform: pexels
-    url: "https://www.pexels.com/video/shoe-spinning-around-4380323/"
     pexels_id: "4380323"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_sneaker_detail
     vertical: ecommerce
     name: "Close-Up of Shoes"
     platform: pexels
-    url: "https://www.pexels.com/video/close-up-video-of-a-shoes-7644257/"
     pexels_id: "7644257"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_beauty_shoot
     vertical: ecommerce
     name: "Product Shoot of Beauty Products"
     platform: pexels
-    url: "https://www.pexels.com/video/product-shoot-of-beauty-products-7614397/"
     pexels_id: "7614397"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_clothes_shopping
     vertical: ecommerce
     name: "Woman Shopping for Clothes"
     platform: pexels
-    url: "https://www.pexels.com/video/woman-shopping-for-clothes-7680438/"
     pexels_id: "7680438"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_unboxing
     vertical: ecommerce
     name: "Unboxing Packages"
     platform: pexels
-    url: "https://www.pexels.com/video/unboxing-packages-4440948/"
     pexels_id: "4440948"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_shoe_unboxing
     vertical: ecommerce
     name: "Woman Opening Shoe Package"
     platform: pexels
-    url: "https://www.pexels.com/video/a-woman-opening-a-package-8938181/"
     pexels_id: "8938181"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_necklace_detail
     vertical: ecommerce
     name: "Gold Necklace Close-Up"
     platform: pexels
-    url: "https://www.pexels.com/video/close-up-of-a-expensive-gold-necklace-6469640/"
     pexels_id: "6469640"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ecom_watch_detail
     vertical: ecommerce
     name: "Watch Close-Up"
     platform: pexels
-    url: "https://www.pexels.com/video/close-up-of-watch-12976044/"
     pexels_id: "12976044"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   # ── UGC ───────────────────────────────────────────────────────
 
@@ -83,209 +71,178 @@ sources:
     vertical: ugc
     name: "Vlogger Walking on Street"
     platform: pexels
-    url: "https://www.pexels.com/video/vlogger-walking-on-street-and-talking-to-camera-8457881/"
     pexels_id: "8457881"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_pov_walk
     vertical: ugc
     name: "POV Walking Down a Street"
     platform: pexels
-    url: "https://www.pexels.com/video/pov-shot-of-a-person-walking-down-a-street-3874684/"
     pexels_id: "3874684"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_selfie_recording
     vertical: ugc
     name: "Man Recording Selfie Video"
     platform: pexels
-    url: "https://www.pexels.com/video/man-recording-a-selfie-video-8135646/"
     pexels_id: "8135646"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_night_market
     vertical: ugc
     name: "Night Market (Low Light)"
     platform: pexels
-    url: "https://www.pexels.com/video/people-walking-in-the-night-market-9609519/"
     pexels_id: "9609519"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_night_rain
     vertical: ugc
     name: "Walking at Night in Rain"
     platform: pexels
-    url: "https://www.pexels.com/video/a-person-walking-down-a-street-at-night-16538871/"
     pexels_id: "16538871"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_dogs_playing
     vertical: ugc
     name: "Dogs Playing"
     platform: pexels
-    url: "https://www.pexels.com/video/dogs-playing-3045714/"
     pexels_id: "3045714"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_concert_crowd
     vertical: ugc
     name: "Concert Crowd"
     platform: pexels
-    url: "https://www.pexels.com/video/crowd-of-people-at-a-concert-12695733/"
     pexels_id: "12695733"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   - id: ugc_talking_head
     vertical: ugc
     name: "Indoor Vlog Talking Head"
     platform: pexels
-    url: "https://www.pexels.com/video/man-doing-a-video-vlog-4994033/"
     pexels_id: "4994033"
     license: "Pexels License"
-    trim: {start: 0, duration: 60}
 
   # ── Archives ──────────────────────────────────────────────────
+  # URLs need to be verified against actual archive.org file listings
 
   - id: archive_market_street_1906
     vertical: archive
     name: "A Trip Down Market Street (1906 4K Film Scan)"
     platform: archive_org
-    url: "https://archive.org/download/MarketStreet19064KScan20181016/"
-    filename: "A Trip Down Market Street, 1906 [4K].mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 0, duration: 90}
 
   - id: archive_duck_and_cover
     vertical: archive
     name: "Duck and Cover (1951)"
     platform: archive_org
-    url: "https://archive.org/download/DuckandC1951/DuckandC1951_512kb.mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 0, duration: 90}
 
   - id: archive_design_dreaming
     vertical: archive
     name: "Design for Dreaming (1956, Color)"
     platform: archive_org
-    url: "https://archive.org/download/Designfo1956/Designfo1956_512kb.mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 0, duration: 90}
 
   - id: archive_prelude_to_war
     vertical: archive
     name: "Prelude to War (1942 WWII Documentary)"
     platform: archive_org
-    url: "https://archive.org/download/PreludeToWar/PreludeToWar_512kb.mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 0, duration: 90}
 
   - id: archive_nosferatu
     vertical: archive
     name: "Nosferatu (1922 Silent Film)"
     platform: archive_org
-    url: "https://archive.org/download/Nosferatu_DVD_quality/Nosferatu_DVD_quality.mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 120, duration: 90}
 
   - id: archive_night_mail
     vertical: archive
     name: "Night Mail (1936 Documentary)"
     platform: archive_org
-    url: "https://archive.org/download/night-mail-1936/Night%20Mail%20%281936%29.mp4"
+    url: TODO
     license: "Public Domain"
-    trim: {start: 60, duration: 90}
 
   # ── Education ─────────────────────────────────────────────────
+  # URLs need to be verified against actual archive.org file listings
 
   - id: edu_mit_matrix_whiteboard
     vertical: education
-    name: "MIT 18.065 Matrix Methods (Whiteboard, 1080p)"
+    name: "MIT 18.065 Matrix Methods (Whiteboard)"
     platform: archive_org
-    url: "https://archive.org/download/MITOCW-18.065-Spring2018/1. The Column Space of A Contains All Vectors Ax (1080p_30fps_H264-128kbit_AAC).mp4"
+    url: TODO
     license: "CC BY-NC-SA 4.0"
-    trim: {start: 60, duration: 90}
 
   - id: edu_mit_algorithms_slides
     vertical: education
     name: "MIT 6.006 Algorithms (Slides + Diagrams)"
     platform: archive_org
-    url: "https://archive.org/download/MIT6.006S20/"
-    filename: "MIT6_006S20_lec01_300k.mp4"
+    url: TODO
     license: "CC BY-NC-SA 4.0"
-    trim: {start: 60, duration: 90}
 
   - id: edu_mit_linear_algebra
     vertical: education
     name: "MIT 18.06 Linear Algebra (Chalkboard)"
     platform: archive_org
-    url: "https://archive.org/download/MIT18.06S05_MP4/01.mp4"
+    url: TODO
     license: "CC BY-NC-SA 4.0"
-    trim: {start: 60, duration: 90}
 
   - id: edu_mit_physics_demos
     vertical: education
     name: "MIT 8.01 Physics (Demos + Chalkboard)"
     platform: archive_org
-    url: "https://archive.org/download/MIT8.01F99/01.mp4"
+    url: TODO
     license: "CC BY-NC-SA 4.0"
-    trim: {start: 60, duration: 90}
 
   - id: edu_harvard_cs50
     vertical: education
     name: "Harvard CS50 Cybersecurity (2023)"
     platform: archive_org
-    url: "https://archive.org/download/cs50-intro-to-cybersecurity-2023/"
-    filename: "CS50 Cybersecurity - Lecture 0 - Passwords.ia.mp4"
+    url: TODO
     license: "CC BY-NC-SA 4.0"
-    trim: {start: 120, duration: 90}
 
   - id: edu_khan_calculus
     vertical: education
     name: "Khan Academy Calculus (Screencast)"
     platform: archive_org
-    url: "https://archive.org/download/KhanAcademy_Calculus/determining-a-position-vector-valued-function-for-a-parametrization-of-two-parameters_512kb.mp4"
+    url: TODO
     license: "CC BY-NC-SA 3.0"
-    trim: {start: 0, duration: 90}
 
   # ── Security & Surveillance ───────────────────────────────────
 
   - id: security_virat_parking
     vertical: security
     name: "VIRAT Parking Lot Surveillance (1080p)"
-    platform: kitware
-    url: "https://data.kitware.com/api/v1/item/56f56d848d777f753209ba9f/download"
-    filename: "VIRAT_S_010000_00_000000_000165.mp4"
-    license: "DARPA Research Use"
-    trim: {start: 0, duration: 90}
+    platform: manual
+    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
+    license: "VIRAT Dataset Agreement"
+    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
 
   - id: security_virat_building
     vertical: security
     name: "VIRAT Building Entrance Surveillance (1080p)"
-    platform: kitware
-    url: "https://data.kitware.com/api/v1/item/56f56d848d777f753209baa3/download"
-    filename: "VIRAT_S_010200_02_000590_000720.mp4"
-    license: "DARPA Research Use"
-    trim: {start: 0, duration: 90}
+    platform: manual
+    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
+    license: "VIRAT Dataset Agreement"
+    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
 
-  - id: security_caviar_lobby
+  - id: security_virat_walkway
     vertical: security
-    name: "CAVIAR Lobby Entrance (Classic CCTV)"
-    platform: archive_org
-    url: "https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/BROWSE1ENTER/Browse1Enter.mpg"
-    license: "Free for Research (EC IST)"
-    trim: {start: 0, duration: 60}
+    name: "VIRAT Walkway Surveillance (1080p)"
+    platform: manual
+    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
+    license: "VIRAT Dataset Agreement"
+    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
 
-  - id: security_caviar_corridor
+  - id: security_virat_road
     vertical: security
-    name: "CAVIAR Corridor Walk"
-    platform: archive_org
-    url: "https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/WALK1/Walk1.mpg"
-    license: "Free for Research (EC IST)"
-    trim: {start: 0, duration: 60}
+    name: "VIRAT Road Surveillance (1080p)"
+    platform: manual
+    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
+    license: "VIRAT Dataset Agreement"
+    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
