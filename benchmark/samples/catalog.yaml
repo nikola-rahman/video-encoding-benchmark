@@ -5,7 +5,8 @@
 #   id        — unique identifier, used as output filename
 #   vertical  — industry vertical (ecommerce, ugc, archive, education, security)
 #   name      — human-readable description
-#   url       — direct download URL (mp4, m3u8, or other ffmpeg-supported format)
+#   url       — download URL
+#   method    — download method: ffmpeg (m3u8/direct), yt-dlp (youtube/social), manual
 #   license   — content license
 
 sources:
@@ -16,33 +17,73 @@ sources:
     vertical: ecommerce
     name: "Nike Sneakers Product Video"
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/6db80be0-ff94-435b-8f34-f5b137efe2c6/default.vertical.jobtemplate.hls.m3u8"
+    method: ffmpeg
     license: "Amazon"
 
   - id: ecom_iphone17
     vertical: ecommerce
     name: "iPhone 17 Product Video"
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/96171188-9a45-4cfd-a6e5-d508d1295a3a/default.jobtemplate.hls.m3u8"
+    method: ffmpeg
     license: "Amazon"
 
   - id: ecom_watch
     vertical: ecommerce
     name: "Watch Product Video"
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f096a067-6581-4456-b776-f5746f5f76bb/default.jobtemplate.hls.m3u8"
+    method: ffmpeg
     license: "Amazon"
 
   - id: ecom_supplements
     vertical: ecommerce
     name: "Supplements Product Video"
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f04ad07d-98e3-49fa-9a64-b4baf3094a46/default.jobtemplate.hls720.m3u8"
+    method: ffmpeg
     license: "Amazon"
 
   - id: ecom_mountain_bike
     vertical: ecommerce
     name: "Mountain Bike Product Video"
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/12f1ae85-6ea2-42d7-a36b-97a30c19db92/default.jobtemplate.hls720.m3u8"
+    method: ffmpeg
     license: "Amazon"
 
   # ── UGC ───────────────────────────────────────────────────────
+
+  - id: ugc_dog_compilation
+    vertical: ugc
+    name: "Dog Compilation (Pets)"
+    url: "https://www.youtube.com/shorts/GZoq4eCgmgY"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_surprise_reaction
+    vertical: ugc
+    name: "Surprise Reaction Clip"
+    url: "https://www.youtube.com/shorts/WtH-ig9PuF0"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_rare_photos
+    vertical: ugc
+    name: "Rare Photos Slideshow"
+    url: "https://www.youtube.com/shorts/UEAIGUtZAfk"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_macbook_painting
+    vertical: ugc
+    name: "Painting a MacBook"
+    url: "https://www.youtube.com/shorts/Yx3Pc50sf0M"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_reaction_comedy
+    vertical: ugc
+    name: "Reaction/Comedy Clip"
+    url: "https://www.youtube.com/shorts/OQylRLFz-tQ"
+    method: yt-dlp
+    license: "YouTube"
 
   # ── Archives ──────────────────────────────────────────────────
 

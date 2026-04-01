@@ -40,14 +40,28 @@ def probe_video(path: Path) -> dict:
     }
 
 
-def download(url: str, output_path: Path) -> None:
-    """Download a video URL to mp4 using ffmpeg."""
+def download_ffmpeg(url: str, output_path: Path) -> None:
     result = subprocess.run(
         ["ffmpeg", "-y", "-i", url, "-c", "copy", str(output_path)],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[:500]}")
+
+
+def download_ytdlp(url: str, output_path: Path) -> None:
+    result = subprocess.run(
+        ["yt-dlp", "--merge-output-format", "mp4", "-o", str(output_path), url],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed: {result.stderr.strip()[:500]}")
+
+
+METHODS = {
+    "ffmpeg": download_ffmpeg,
+    "yt-dlp": download_ytdlp,
+}
 
 
 def run(
@@ -84,8 +98,14 @@ def run(
             failed.append((sid, "missing url"))
             continue
 
+        method = source.get("method", "ffmpeg")
+        dl_fn = METHODS.get(method)
+        if not dl_fn:
+            failed.append((sid, f"unknown method: {method}"))
+            continue
+
         try:
-            download(url, output_file)
+            dl_fn(url, output_file)
             info = probe_video(output_file)
             tqdm.write(f"  {sid}: {info['width']}x{info['height']} {info['duration']:.0f}s")
             succeeded.append(sid)
