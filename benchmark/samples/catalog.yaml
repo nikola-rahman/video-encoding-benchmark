@@ -1,248 +1,51 @@
 # Video sample catalog for the compression benchmark.
-# Platform types:
-#   pexels      — automated via Pexels API (needs PEXELS_API_KEY)
-#   archive_org — automated via direct HTTP
-#   huggingface — automated via HuggingFace Hub
-#   manual      — user downloads and places in data/samples/raw/
+# Each source is a video to download and use as benchmark input.
+#
+# Fields:
+#   id        — unique identifier, used as output filename
+#   vertical  — industry vertical (ecommerce, ugc, archive, education, security)
+#   name      — human-readable description
+#   url       — direct download URL (mp4, m3u8, or other ffmpeg-supported format)
+#   license   — content license
 
 sources:
 
   # ── E-Commerce ────────────────────────────────────────────────
 
-  - id: ecom_shoe_turntable
+  - id: ecom_nike_sneakers
     vertical: ecommerce
-    name: "Shoe Spinning Around"
-    platform: pexels
-    pexels_id: "4380323"
-    license: "Pexels License"
+    name: "Nike Sneakers Product Video"
+    url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/6db80be0-ff94-435b-8f34-f5b137efe2c6/default.vertical.jobtemplate.hls.m3u8"
+    license: "Amazon"
 
-  - id: ecom_sneaker_detail
+  - id: ecom_iphone17
     vertical: ecommerce
-    name: "Close-Up of Shoes"
-    platform: pexels
-    pexels_id: "7644257"
-    license: "Pexels License"
+    name: "iPhone 17 Product Video"
+    url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/96171188-9a45-4cfd-a6e5-d508d1295a3a/default.jobtemplate.hls.m3u8"
+    license: "Amazon"
 
-  - id: ecom_beauty_shoot
+  - id: ecom_watch
     vertical: ecommerce
-    name: "Product Shoot of Beauty Products"
-    platform: pexels
-    pexels_id: "7614397"
-    license: "Pexels License"
+    name: "Watch Product Video"
+    url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f096a067-6581-4456-b776-f5746f5f76bb/default.jobtemplate.hls.m3u8"
+    license: "Amazon"
 
-  - id: ecom_clothes_shopping
+  - id: ecom_supplements
     vertical: ecommerce
-    name: "Woman Shopping for Clothes"
-    platform: pexels
-    pexels_id: "7680438"
-    license: "Pexels License"
+    name: "Supplements Product Video"
+    url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f04ad07d-98e3-49fa-9a64-b4baf3094a46/default.jobtemplate.hls720.m3u8"
+    license: "Amazon"
 
-  - id: ecom_unboxing
+  - id: ecom_mountain_bike
     vertical: ecommerce
-    name: "Unboxing Packages"
-    platform: pexels
-    pexels_id: "4440948"
-    license: "Pexels License"
-
-  - id: ecom_shoe_unboxing
-    vertical: ecommerce
-    name: "Woman Opening Shoe Package"
-    platform: pexels
-    pexels_id: "8938181"
-    license: "Pexels License"
-
-  - id: ecom_necklace_detail
-    vertical: ecommerce
-    name: "Gold Necklace Close-Up"
-    platform: pexels
-    pexels_id: "6469640"
-    license: "Pexels License"
-
-  - id: ecom_watch_detail
-    vertical: ecommerce
-    name: "Watch Close-Up"
-    platform: pexels
-    pexels_id: "12976044"
-    license: "Pexels License"
+    name: "Mountain Bike Product Video"
+    url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/12f1ae85-6ea2-42d7-a36b-97a30c19db92/default.jobtemplate.hls720.m3u8"
+    license: "Amazon"
 
   # ── UGC ───────────────────────────────────────────────────────
 
-  - id: ugc_street_vlog
-    vertical: ugc
-    name: "Vlogger Walking on Street"
-    platform: pexels
-    pexels_id: "8457881"
-    license: "Pexels License"
-
-  - id: ugc_pov_walk
-    vertical: ugc
-    name: "POV Walking Down a Street"
-    platform: pexels
-    pexels_id: "3874684"
-    license: "Pexels License"
-
-  - id: ugc_selfie_recording
-    vertical: ugc
-    name: "Man Recording Selfie Video"
-    platform: pexels
-    pexels_id: "8135646"
-    license: "Pexels License"
-
-  - id: ugc_night_market
-    vertical: ugc
-    name: "Night Market (Low Light)"
-    platform: pexels
-    pexels_id: "9609519"
-    license: "Pexels License"
-
-  - id: ugc_night_rain
-    vertical: ugc
-    name: "Walking at Night in Rain"
-    platform: pexels
-    pexels_id: "16538871"
-    license: "Pexels License"
-
-  - id: ugc_dogs_playing
-    vertical: ugc
-    name: "Dogs Playing"
-    platform: pexels
-    pexels_id: "3045714"
-    license: "Pexels License"
-
-  - id: ugc_concert_crowd
-    vertical: ugc
-    name: "Concert Crowd"
-    platform: pexels
-    pexels_id: "12695733"
-    license: "Pexels License"
-
-  - id: ugc_talking_head
-    vertical: ugc
-    name: "Indoor Vlog Talking Head"
-    platform: pexels
-    pexels_id: "4994033"
-    license: "Pexels License"
-
   # ── Archives ──────────────────────────────────────────────────
-  # URLs need to be verified against actual archive.org file listings
-
-  - id: archive_market_street_1906
-    vertical: archive
-    name: "A Trip Down Market Street (1906 4K Film Scan)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
-
-  - id: archive_duck_and_cover
-    vertical: archive
-    name: "Duck and Cover (1951)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
-
-  - id: archive_design_dreaming
-    vertical: archive
-    name: "Design for Dreaming (1956, Color)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
-
-  - id: archive_prelude_to_war
-    vertical: archive
-    name: "Prelude to War (1942 WWII Documentary)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
-
-  - id: archive_nosferatu
-    vertical: archive
-    name: "Nosferatu (1922 Silent Film)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
-
-  - id: archive_night_mail
-    vertical: archive
-    name: "Night Mail (1936 Documentary)"
-    platform: archive_org
-    url: TODO
-    license: "Public Domain"
 
   # ── Education ─────────────────────────────────────────────────
-  # URLs need to be verified against actual archive.org file listings
-
-  - id: edu_mit_matrix_whiteboard
-    vertical: education
-    name: "MIT 18.065 Matrix Methods (Whiteboard)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 4.0"
-
-  - id: edu_mit_algorithms_slides
-    vertical: education
-    name: "MIT 6.006 Algorithms (Slides + Diagrams)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 4.0"
-
-  - id: edu_mit_linear_algebra
-    vertical: education
-    name: "MIT 18.06 Linear Algebra (Chalkboard)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 4.0"
-
-  - id: edu_mit_physics_demos
-    vertical: education
-    name: "MIT 8.01 Physics (Demos + Chalkboard)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 4.0"
-
-  - id: edu_harvard_cs50
-    vertical: education
-    name: "Harvard CS50 Cybersecurity (2023)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 4.0"
-
-  - id: edu_khan_calculus
-    vertical: education
-    name: "Khan Academy Calculus (Screencast)"
-    platform: archive_org
-    url: TODO
-    license: "CC BY-NC-SA 3.0"
 
   # ── Security & Surveillance ───────────────────────────────────
-
-  - id: security_virat_parking
-    vertical: security
-    name: "VIRAT Parking Lot Surveillance (1080p)"
-    platform: manual
-    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
-    license: "VIRAT Dataset Agreement"
-    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
-
-  - id: security_virat_building
-    vertical: security
-    name: "VIRAT Building Entrance Surveillance (1080p)"
-    platform: manual
-    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
-    license: "VIRAT Dataset Agreement"
-    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
-
-  - id: security_virat_walkway
-    vertical: security
-    name: "VIRAT Walkway Surveillance (1080p)"
-    platform: manual
-    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
-    license: "VIRAT Dataset Agreement"
-    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
-
-  - id: security_virat_road
-    vertical: security
-    name: "VIRAT Road Surveillance (1080p)"
-    platform: manual
-    url: "https://data.kitware.com/#collection/56f56db28d777f753209ba9f"
-    license: "VIRAT Dataset Agreement"
-    notes: "Browse VIRAT > Public Dataset > Release 2.0 > Ground Dataset > videos_original"
