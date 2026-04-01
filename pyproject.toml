@@ -6,9 +6,12 @@ requires-python = ">=3.14"
 dependencies = [
     "bitmovin-api-sdk>=1.259.1",
     "boto3>=1.42.74",
+    "huggingface-hub>=1.7.2",
     "jinja2>=3.1.6",
     "matplotlib>=3.10.8",
     "numpy>=2.4.3",
+    "pandas>=3.0.1",
+    "pyarrow>=23.0.1",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "requests>=2.32.5",

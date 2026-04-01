@@ -11,6 +11,10 @@ data/outputs/*
 !data/inputs/.gitkeep
 !data/outputs/.gitkeep
 
+# Downloaded video samples
+data/samples/*
+!data/samples/.gitkeep
+
 # Pipeline run artifacts
 data/metadata.json
 data/vmaf_results.json

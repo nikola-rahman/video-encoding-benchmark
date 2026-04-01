@@ -51,6 +51,8 @@ verticals:
     name: "Archives"
   - id: education
     name: "Education"
+  - id: security
+    name: "Security & Surveillance"
 
 # Input data
 data:

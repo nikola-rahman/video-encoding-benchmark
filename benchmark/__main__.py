@@ -3,45 +3,50 @@
 import argparse
 import sys
 
-from benchmark.config import load_config
+
+def _load_config(args):
+    from benchmark.config import load_config
+    return load_config(args.config)
 
 
-def cmd_preprocess(args, config):
+def cmd_preprocess(args):
     from benchmark.steps import preprocess
-    preprocess.run(config, fix=args.fix, files=args.file)
+    preprocess.run(_load_config(args), fix=args.fix, files=args.file)
 
 
-def cmd_upload(args, config):
+def cmd_upload(args):
     from benchmark.steps import upload
-    upload.run(config, presign_only=args.presign_only, expires=args.expires,
+    upload.run(_load_config(args), presign_only=args.presign_only, expires=args.expires,
                update_urls=args.update_urls, files=args.file)
 
 
-def cmd_encode(args, config):
+def cmd_encode(args):
     from benchmark.steps import encode
-    encode.run(config, provider_name=args.provider, codec=args.codec,
+    encode.run(_load_config(args), provider_name=args.provider, codec=args.codec,
                video_filter=args.video)
 
 
-def cmd_poll(args, config):
+def cmd_poll(args):
     from benchmark.steps import poll
+    config = _load_config(args)
     poll.run(config, provider_name=args.provider, watch=args.watch,
              encoding_ids=args.id, status_filter=args.status,
              all_encodings=args.all, limit=args.limit)
 
 
-def cmd_download(args, config):
+def cmd_download(args):
     from benchmark.steps import download
-    download.run(config, provider_name=args.provider,
+    download.run(_load_config(args), provider_name=args.provider,
                  encoding_ids=args.encoding_id, list_only=args.list)
 
 
-def cmd_scan(args, config):
+def cmd_scan(args):
     """Scan a manual provider's output directory and add to metadata."""
     from pathlib import Path
     from benchmark.providers.manual import ManualProvider
     from benchmark.metadata import load_metadata, save_metadata
 
+    config = _load_config(args)
     data_dir = Path(config.get("data_dir", "./data"))
     metadata_path = data_dir / "metadata.json"
 
@@ -67,34 +72,48 @@ def cmd_scan(args, config):
     print(f"\nDone: {added} added, {len(results) - added} already registered")
 
 
-def cmd_measure(args, config):
+def cmd_measure(args):
     from benchmark.steps import measure
-    measure.run(config, seed=args.seed, duration=args.duration,
+    measure.run(_load_config(args), seed=args.seed, duration=args.duration,
                 threads=args.threads, model=args.model)
 
 
-def cmd_report(args, config):
+def cmd_report(args):
     from benchmark.steps import report
-    report.run(config)
+    report.run(_load_config(args))
 
 
-def cmd_export(args, config):
+def cmd_export(args):
     from benchmark.steps import export
-    export.run(config, output_dir=args.output)
+    export.run(_load_config(args), output_dir=args.output)
 
 
-def cmd_cleanup(args, config):
+def cmd_acquire(args):
+    from pathlib import Path
+    from benchmark.samples.acquire import acquire
+    output_dir = Path(args.output) if args.output else Path("data/samples")
+    acquire(
+        output_dir=output_dir,
+        verticals=args.vertical,
+        ids=args.id,
+        skip_trim=args.skip_trim,
+    )
+
+
+def cmd_cleanup(args):
     from benchmark.steps import cleanup
+    config = _load_config(args)
     cleanup.run(config, provider_name=args.provider,
                 encoding_ids=args.id, delete=args.delete,
                 keep_local=args.keep_local)
 
 
-def cmd_run(args, config):
+def cmd_run(args):
     """Run the full pipeline."""
     from benchmark.util.log import setup_logging
     log = setup_logging("pipeline")
 
+    config = _load_config(args)
     skip = set(args.skip.split(",")) if args.skip else set()
     steps = ["preprocess", "upload", "encode", "poll", "download", "measure", "report"]
 
@@ -185,6 +204,13 @@ def main():
     p = subparsers.add_parser("export", help="Export results to CSV for report generation")
     p.add_argument("--output", default="report/data", help="Output directory (default: report/data)")
 
+    # acquire
+    p = subparsers.add_parser("acquire", help="Download video samples from catalog")
+    p.add_argument("--vertical", nargs="*", help="Filter by vertical (ecommerce, ugc, archive, education, security)")
+    p.add_argument("--id", nargs="*", help="Filter by source ID")
+    p.add_argument("--output", default=None, help="Output directory (default: data/samples)")
+    p.add_argument("--skip-trim", action="store_true", help="Download only, don't trim")
+
     # cleanup
     p = subparsers.add_parser("cleanup", help="Clean up remote and local resources")
     p.add_argument("--provider", help="Provider name")
@@ -203,9 +229,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    config = load_config(args.config)
-
-    # Dispatch to command handler
     handler = {
         "preprocess": cmd_preprocess,
         "upload": cmd_upload,
@@ -216,11 +239,12 @@ def main():
         "measure": cmd_measure,
         "report": cmd_report,
         "export": cmd_export,
+        "acquire": cmd_acquire,
         "cleanup": cmd_cleanup,
         "run": cmd_run,
     }[args.command]
 
-    handler(args, config)
+    handler(args)
 
 
 if __name__ == "__main__":

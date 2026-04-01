@@ -104,6 +104,7 @@ All major cloud encoding benchmarks — Ozer (2022), MSU (2020, 2022) — evalua
 | **UGC platforms** | Ingest, transcode, store uploaded video | Storage cost is the dominant concern, not adaptive playback |
 | **Video archives** | Long-term preservation at minimum cost | Every byte saved compounds over years and petabytes |
 | **Online education** | Lecture and tutorial content at scale | Text-heavy content with consistent quality requirements |
+| **Security & surveillance** | 24/7 recording with months of retention | Massive volume; storage cost dominates; low motion with rare events |
 
 ### How streaming-optimized encoding differs from single-file encoding
 
@@ -385,6 +386,8 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 **What they need:** Guaranteed quality floor at minimum file size. Long-term storage where every byte saved compounds over years and petabytes. Format longevity matters.
 {%- elif v.id == "education" %}
 **What they need:** Sharp text, code, and diagrams. Consistent quality across mixed content (slides + camera). Cost-effective hosting at millions of hours of content.
+{%- elif v.id == "security" %}
+**What they need:** 24/7 recording at minimum storage cost. Acceptable quality for identification purposes. Massive volume — hundreds of cameras × months of retention. Low-motion scenes with occasional bursts of activity.
 {%- endif %}
 
 **Recommendation:** {{ recommendations[v.id] | d("*To be written after data analysis.*") }}
