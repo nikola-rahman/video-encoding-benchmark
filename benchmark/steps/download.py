@@ -13,16 +13,18 @@ log = setup_logging("download")
 def run(config: dict, provider_name: str | None = None,
         encoding_ids: list[str] | None = None, list_only: bool = False):
     """Run the download step."""
-    data_dir = Path(config.get("data_dir", "./data"))
+    data_dir = Path(config["data_dir"])
     outputs_dir = data_dir / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
     metadata_path = data_dir / "metadata.json"
 
-    pname = provider_name or "bitmovin"
-    provider = get_provider(pname, config)
+    if not provider_name:
+        log.error("--provider is required for downloading")
+        return
+    provider = get_provider(provider_name, config)
 
     if "download" not in provider.capabilities:
-        log.error(f"Provider '{pname}' does not support downloading")
+        log.error(f"Provider '{provider_name}' does not support downloading")
         return
 
     if list_only:

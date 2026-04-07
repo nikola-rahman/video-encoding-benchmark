@@ -13,11 +13,13 @@ def run(config: dict, provider_name: str | None = None, watch: int | None = None
         encoding_ids: list[str] | None = None, status_filter: str | None = None,
         all_encodings: bool = False, limit: int = 50):
     """Run the poll step."""
-    pname = provider_name or "bitmovin"
-    provider = get_provider(pname, config)
+    if not provider_name:
+        log.error("--provider is required for polling")
+        return
+    provider = get_provider(provider_name, config)
 
     if "poll" not in provider.capabilities:
-        log.error(f"Provider '{pname}' does not support status polling")
+        log.error(f"Provider '{provider_name}' does not support status polling")
         return
 
     def do_check():

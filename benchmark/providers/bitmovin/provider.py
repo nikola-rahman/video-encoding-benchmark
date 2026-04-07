@@ -51,7 +51,7 @@ class BitmovinProvider(Provider):
         self.provider_config = config.get("providers", {}).get("bitmovin", {})
         self.api_key = os.environ.get("BITMOVIN_API_KEY", "")
         self.s3_output_id = os.environ.get("BITMOVIN_S3_OUTPUT_ID", "")
-        self.s3_output_base_path = self.provider_config.get("s3_output_base_path", "encoding-benchmarks/")
+        self.s3_output_base_path = self.provider_config["s3_output_base_path"]
         self.per_title = self.provider_config.get("per_title", {})
         self._api = None
 

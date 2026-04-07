@@ -18,8 +18,8 @@ class ManualProvider(Provider):
 
     def __init__(self, provider_name: str, config: dict):
         super().__init__(provider_name, config)
-        data_dir = Path(config.get("data_dir", "./data"))
-        self.inputs_dir = data_dir / "inputs"
+        data_dir = Path(config["data_dir"])
+        self.inputs_dir = Path(config["inputs"]["dir"])
         self.outputs_dir = data_dir / "outputs"
 
     def get_results(self, input_file: Path, codec: str, **kwargs) -> list[EncodingResult]:

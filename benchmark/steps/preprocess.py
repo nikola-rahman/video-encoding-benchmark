@@ -11,7 +11,7 @@ log = setup_logging("preprocess")
 
 def run(config: dict, fix: bool = False, files: list[str] | None = None):
     """Run the preprocess step."""
-    inputs_dir = Path(config.get("inputs", {}).get("dir", "./data/inputs"))
+    inputs_dir = Path(config["inputs"]["dir"])
 
     if files:
         video_files = [Path(f) for f in files]

@@ -22,7 +22,7 @@ class MediaConvertProvider(Provider):
         self.role_arn = os.environ.get("MEDIACONVERT_ROLE_ARN", "")
         self.endpoint = os.environ.get("MEDIACONVERT_ENDPOINT", "")
         self.s3_output_bucket = os.environ.get("MEDIACONVERT_S3_OUTPUT_BUCKET", "")
-        self.s3_output_prefix = self.provider_config.get("s3_output_prefix", "benchmark-outputs/")
+        self.s3_output_prefix = self.provider_config["s3_output_prefix"]
         self._client = None
 
     def _get_client(self):

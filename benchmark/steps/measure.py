@@ -17,7 +17,7 @@ log = setup_logging("measure")
 def run(config: dict, seed: int | None = None, duration: float | None = None,
         threads: int | None = None, model: str | None = None):
     """Run the measure (VMAF) step."""
-    data_dir = Path(config.get("data_dir", "./data"))
+    data_dir = Path(config["data_dir"])
     metadata_path = data_dir / "metadata.json"
     results_path = data_dir / "vmaf_results.json"
 

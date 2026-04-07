@@ -14,11 +14,6 @@ def cmd_preprocess(args):
     preprocess.run(_load_config(args), fix=args.fix, files=args.file)
 
 
-def cmd_upload(args):
-    from benchmark.steps import upload
-    upload.run(_load_config(args), presign_only=args.presign_only, expires=args.expires,
-               update_urls=args.update_urls, files=args.file)
-
 
 def cmd_encode(args):
     from benchmark.steps import encode
@@ -104,7 +99,7 @@ def cmd_run(args):
 
     config = _load_config(args)
     skip = set(args.skip.split(",")) if args.skip else set()
-    steps = ["preprocess", "upload", "encode", "poll", "download", "measure", "report"]
+    steps = ["preprocess", "encode", "download", "measure", "report"]
 
     for step in steps:
         if step in skip:
@@ -118,14 +113,9 @@ def cmd_run(args):
         if step == "preprocess":
             from benchmark.steps import preprocess
             preprocess.run(config, fix=True)
-        elif step == "upload":
-            from benchmark.steps import upload
-            upload.run(config, update_urls=True)
         elif step == "encode":
             from benchmark.steps import encode
             encode.run(config, provider_name=args.provider)
-        elif step == "poll":
-            log.info("  Skipping poll in automated pipeline (use 'python -m benchmark poll --watch 30')")
         elif step == "download":
             from benchmark.steps import download
             download.run(config, provider_name=args.provider)
@@ -146,13 +136,6 @@ def main():
     p = subparsers.add_parser("preprocess", help="Validate and fix input videos")
     p.add_argument("--fix", action="store_true", help="Fix any issues found")
     p.add_argument("--file", nargs="*", help="Specific file(s) to check")
-
-    # upload
-    p = subparsers.add_parser("upload", help="Upload inputs to S3 and presign URLs")
-    p.add_argument("--file", nargs="*", help="Specific file(s)")
-    p.add_argument("--presign-only", action="store_true", help="Skip upload")
-    p.add_argument("--expires", type=int, default=604800, help="URL expiration in seconds")
-    p.add_argument("--update-urls", action="store_true", help="Write URLs to video_urls.txt")
 
     # encode
     p = subparsers.add_parser("encode", help="Submit encoding jobs")
@@ -213,7 +196,6 @@ def main():
 
     handler = {
         "preprocess": cmd_preprocess,
-        "upload": cmd_upload,
         "encode": cmd_encode,
         "poll": cmd_poll,
         "download": cmd_download,

@@ -13,7 +13,7 @@ log = setup_logging("report")
 
 def run(config: dict):
     """Generate rate-distortion plots from VMAF results."""
-    data_dir = Path(config.get("data_dir", "./data"))
+    data_dir = Path(config["data_dir"])
     results_path = data_dir / "vmaf_results.json"
 
     if not results_path.exists():

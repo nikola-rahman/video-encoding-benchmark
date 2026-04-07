@@ -13,16 +13,17 @@ def run(config: dict, provider_name: str | None = None,
         encoding_ids: list[str] | None = None, delete: bool = False,
         keep_local: bool = False):
     """Run the cleanup step."""
-    data_dir = Path(config.get("data_dir", "./data"))
+    data_dir = Path(config["data_dir"])
     outputs_dir = data_dir / "outputs"
 
-    pname = provider_name or "bitmovin"
-    provider = get_provider(pname, config)
+    if not provider_name:
+        log.error("--provider is required for cleanup")
+        return
+    provider = get_provider(provider_name, config)
 
     if "cleanup" not in provider.capabilities:
-        # For manual providers, only offer local cleanup
         if delete and not keep_local:
-            provider_dir = outputs_dir / pname
+            provider_dir = outputs_dir / provider_name
             if provider_dir.exists():
                 log.info(f"Deleting local directory: {provider_dir}")
                 shutil.rmtree(provider_dir)
@@ -30,7 +31,7 @@ def run(config: dict, provider_name: str | None = None,
             else:
                 log.info(f"No local directory found: {provider_dir}")
         else:
-            log.info(f"Provider '{pname}' does not support remote cleanup")
+            log.info(f"Provider '{provider_name}' does not support remote cleanup")
         return
 
     if not delete:

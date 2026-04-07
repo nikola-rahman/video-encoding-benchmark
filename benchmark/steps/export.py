@@ -29,7 +29,7 @@ def run(config: dict, output_dir: str | None = None):
         perframe_vmaf.csv        — per-frame VMAF scores (from vmaf_result.json files)
         iframe_data.csv          — I-frame counts and GOP data (from ffprobe)
     """
-    data_dir = Path(config.get("data_dir", "./data"))
+    data_dir = Path(config["data_dir"])
     report_dir = Path(output_dir) if output_dir else Path("report/data")
     report_dir.mkdir(parents=True, exist_ok=True)
 
