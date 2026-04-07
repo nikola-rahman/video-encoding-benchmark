@@ -70,9 +70,23 @@ def download_http(url: str, output_path: Path) -> None:
             bar.update(len(chunk))
 
 
+def _find_ytdlp() -> str:
+    """Find yt-dlp binary — check venv first, then system PATH."""
+    import shutil
+    import sys
+    venv_bin = Path(sys.executable).parent / "yt-dlp"
+    if venv_bin.exists():
+        return str(venv_bin)
+    system_bin = shutil.which("yt-dlp")
+    if system_bin:
+        return system_bin
+    raise FileNotFoundError("yt-dlp not found. Install with: uv add yt-dlp[default]")
+
+
 def download_ytdlp(url: str, output_path: Path) -> None:
+    ytdlp = _find_ytdlp()
     result = subprocess.run(
-        ["yt-dlp", "--merge-output-format", "mp4", "-o", str(output_path), url],
+        [ytdlp, "--merge-output-format", "mp4", "-o", str(output_path), url],
         capture_output=True, text=True,
     )
     if result.returncode != 0:
@@ -125,11 +139,19 @@ def run(
             succeeded.append(sid)
             continue
 
+        method = source.get("method", "ffmpeg")
+
+        if method == "manual":
+            notes = source.get("notes", "")
+            tqdm.write(f"  [{sid}] Manual download required. Save as: {output_dir}/{sid}.mp4")
+            if notes:
+                tqdm.write(f"    {notes}")
+            continue
+
         if not url:
             failed.append((sid, "missing url"))
             continue
 
-        method = source.get("method", "ffmpeg")
         dl_fn = METHODS.get(method)
         if not dl_fn:
             failed.append((sid, f"unknown method: {method}"))
