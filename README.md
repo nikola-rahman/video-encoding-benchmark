@@ -9,26 +9,24 @@ uv sync
 cp .env.example .env  # fill in API keys
 ```
 
-Requires `ffmpeg` and `yt-dlp` installed on your system:
-```bash
-brew install ffmpeg yt-dlp
-```
-
 ## Project Structure
 
 ```
 benchmark/              # Encoding pipeline
   providers/            # Provider integrations (one dir each)
+    base.py             # Provider ABC + quality binary search
     bitmovin/           # Implemented
-    mediaconvert/       # Skeleton
+    mediaconvert/       # In progress
     mux/                # Skeleton
     cloudflare/         # Skeleton
     zencoder/           # Skeleton
     manual/             # Filesystem scanner (for Vidaio etc.)
   samples/              # Video sample management
     catalog.yaml        # What videos to use and where to get them
-    download.py         # Download raw samples from URLs
-    prepare.py          # Re-encode to H.264 CRF 18 benchmark inputs
+    source.py           # Download from original sources
+    download.py         # Download from S3
+    upload.py           # Upload to S3
+    prepare.py          # Re-encode raw → H.264 CRF 18
   steps/                # Pipeline steps
   util/                 # FFmpeg, S3, logging helpers
 report/                 # Report generation system
@@ -38,8 +36,8 @@ report/                 # Report generation system
   report.yaml           # Config: version, providers, thresholds
 data/                   # Runtime data (gitignored except .gitkeep)
   samples/
-    raw/                # Layer 1: downloaded originals (any format, any duration)
-    prepared/           # Layer 2: re-encoded H.264 CRF 18, trimmed, benchmark-ready
+    raw/                # Layer 1: downloaded originals (any format)
+    prepared/           # Layer 2: H.264 CRF 18, trimmed, benchmark-ready
   outputs/              # Layer 3: encoded files by provider
   results/              # Layer 4: VMAF scores, metadata
 research/               # Background research and pilot results
@@ -52,86 +50,104 @@ research/               # Background research and pilot results
 Download prepared samples from S3 (the default path):
 
 ```bash
-# Download prepared benchmark inputs from S3
 .venv/bin/python -m benchmark.samples.download data/samples/prepared samples/prepared
-
-# Download raw originals from S3
-.venv/bin/python -m benchmark.samples.download data/samples/raw samples/raw
 ```
 
-To build samples from scratch (first time setup or adding new videos):
+To build samples from scratch (first time or adding new videos):
 
 ```bash
 # Download from original sources (YouTube, archive.org, etc.)
 .venv/bin/python -m benchmark.samples.source data/samples/raw
 
-# For manual sources (e.g. VIRAT), place files in data/samples/raw/{id}.mp4
-```
-
-### 2. Prepare benchmark inputs
-
-Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Videos longer than `max_duration` (default 120s) are automatically trimmed. Per-source `trim` settings in `catalog.yaml` override the default.
-
-```bash
+# Prepare (re-encode to H.264 CRF 18, trim long videos)
 .venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared
-```
 
-### 3. Upload to S3
-
-```bash
-# Upload prepared inputs
+# Upload to S3 for sharing
 .venv/bin/python -m benchmark.samples.upload data/samples/prepared samples/prepared
-
-# Upload raw originals
-.venv/bin/python -m benchmark.samples.upload data/samples/raw samples/raw
 ```
 
-### 4. Generate presigned URLs
+### 2. Encode with providers
 
-Cloud providers need HTTPS URLs to access input files. Generate presigned URLs from Hippius S3:
-
-```bash
-.venv/bin/python -m benchmark.samples.presign samples/prepared video_urls.txt
-```
-
-### 5. Encode with providers
+Each provider handles its own input preparation (presigning, S3 access, etc.) internally.
 
 ```bash
 # Cloud providers (submit job)
-.venv/bin/python -m benchmark encode --provider bitmovin --codec av1
+.venv/bin/python -m benchmark encode --provider mediaconvert --codec h265
 
 # Poll until finished
-.venv/bin/python -m benchmark poll --provider bitmovin --watch 30
+.venv/bin/python -m benchmark poll --provider mediaconvert
 
 # Download encoded outputs
-.venv/bin/python -m benchmark download --provider bitmovin
+.venv/bin/python -m benchmark download --provider mediaconvert
 
 # Manual providers (e.g. Vidaio) — place files and scan
-# Place in data/outputs/vidaio/<clip>_<codec>_<preset>/output.mp4
 .venv/bin/python -m benchmark scan vidaio
 ```
 
-### 6. Measure quality
+### 3. Measure quality
 
 ```bash
 .venv/bin/python -m benchmark measure
 ```
 
-### 7. Export and generate report
+### 4. Export and generate report
 
 ```bash
-# Export pipeline results to CSVs
 .venv/bin/python -m benchmark export
-
-# Generate charts + render report
 .venv/bin/python -m report.generate
-
 # Output: report/output/latest/report.md
+```
+
+## Adding a New Provider
+
+Each provider is a Python package under `benchmark/providers/` with:
+
+```
+benchmark/providers/myprovider/
+  __init__.py           # Re-exports the provider class
+  provider.py           # Provider implementation
+  README.md             # Setup, credentials, API docs
+```
+
+A provider must extend `benchmark.providers.base.Provider` and implement:
+
+| Method | Required | Description |
+|--------|----------|-------------|
+| `prepare_input(input_file, s3_key)` | Yes | Return a URL/path the provider can use to access the input. Bitmovin presigns a Hippius URL. MediaConvert presigns a Hippius URL. A local provider returns the file path. |
+| `get_results(input_file, codec)` | Yes | Submit an encoding job. Return `EncodingResult` with `encoding_id`. |
+| `check_status(encoding_id)` | If cloud | Poll job status. Return dict with `status`, `progress`. |
+| `download(result, output_dir)` | If cloud | Download encoded output. Return `EncodingResult` with `renditions` populated. |
+| `cleanup(result)` | Optional | Delete remote resources (S3 outputs, jobs). |
+| `quality_range(codec)` | For binary search | Return `(min, max)` of quality setting. Higher = better quality. |
+| `encode_at_quality(input_file, codec, quality)` | For binary search | Encode at a specific quality level. Return `EncodingResult` with local file ready for VMAF. |
+
+Register the provider in `benchmark/providers/__init__.py`:
+
+```python
+PROVIDERS = {
+    ...
+    "myprovider": MyProvider,
+}
+```
+
+Add non-secret settings to `benchmark.yaml`:
+
+```yaml
+providers:
+  myprovider:
+    enabled: true
+    some_setting: value
+```
+
+Credentials go in `.env`:
+
+```
+MYPROVIDER_API_KEY=...
 ```
 
 ## Provider Setup
 
-Each provider has its own README with credentials, SDK install, and API docs:
+Each provider has its own README with setup steps and API docs:
 
 - [`benchmark/providers/bitmovin/README.md`](benchmark/providers/bitmovin/README.md)
 - [`benchmark/providers/mediaconvert/README.md`](benchmark/providers/mediaconvert/README.md)
@@ -142,33 +158,16 @@ Each provider has its own README with credentials, SDK install, and API docs:
 
 ## Configuration
 
-- `benchmark.yaml` — pipeline config (providers, codecs, S3 storage)
+- `benchmark.yaml` — pipeline settings (providers, codecs, paths)
 - `benchmark/samples/catalog.yaml` — video sample sources and trim settings
 - `report/report.yaml` — report config (version, thresholds, projections)
-- `.env` — API keys and credentials (not committed)
-
-## CLI Commands
-
-```
-python -m benchmark preprocess   # Validate/fix input videos
-python -m benchmark upload       # Upload inputs to S3
-python -m benchmark encode       # Submit encoding jobs
-python -m benchmark poll         # Check encoding status
-python -m benchmark download     # Download encoded outputs
-python -m benchmark scan         # Scan manual provider outputs
-python -m benchmark measure      # Calculate VMAF scores
-python -m benchmark export       # Export results to report CSVs
-python -m benchmark report       # Generate basic RD plots
-python -m benchmark cleanup      # Clean up remote resources
-python -m benchmark run          # Run full pipeline
-```
+- `.env` — all credentials (not committed)
 
 ## Standalone Scripts
 
 ```
 python -m benchmark.samples.download <local_dir> <s3_prefix>       # Download from S3
 python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload to S3
-python -m benchmark.samples.presign <s3_prefix> <output_file>      # Generate presigned URLs
 python -m benchmark.samples.source <output_dir>                    # Download from original sources
 python -m benchmark.samples.prepare <raw_dir> <output_dir>         # Prepare benchmark inputs
 python -m report.generate                                          # Generate charts + render report

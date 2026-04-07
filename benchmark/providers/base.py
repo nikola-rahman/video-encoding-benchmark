@@ -79,6 +79,17 @@ class Provider(ABC):
         """Clean up remote resources. Only applicable if 'cleanup' in capabilities."""
         raise NotImplementedError(f"{self.name} does not support cleanup")
 
+    def prepare_input(self, input_file: Path, s3_key: str) -> str:
+        """Return a URL or path the provider can use to access this input.
+
+        Each provider implements this based on how it accepts inputs:
+        - Bitmovin: returns Hippius S3 path directly
+        - MediaConvert: presigns a Hippius HTTPS URL
+        - Mux/Cloudflare: presigns a Hippius HTTPS URL
+        - Manual: returns the local file path
+        """
+        raise NotImplementedError(f"{self.name} does not implement prepare_input")
+
     def quality_range(self, codec: str) -> tuple[float, float]:
         """Return (min, max) of the provider's quality setting.
 

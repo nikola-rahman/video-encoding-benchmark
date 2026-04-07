@@ -55,6 +55,13 @@ class BitmovinProvider(Provider):
         self.per_title = self.provider_config.get("per_title", {})
         self._api = None
 
+    def prepare_input(self, input_file: Path, s3_key: str) -> str:
+        """Bitmovin reads from Hippius S3 via presigned HTTPS URL."""
+        from benchmark.util.s3 import get_s3_client, get_bucket, presign_url
+        s3 = get_s3_client()
+        bucket = get_bucket()
+        return presign_url(s3, bucket, s3_key, 86400)
+
     def _get_api(self):
         if self._api is None:
             if not self.api_key:
