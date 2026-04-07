@@ -7,7 +7,7 @@ codecs: [av1, h265]
 
 storage:
   s3:
-    prefix: benchmark-inputs/
+    prefix: samples/prepared
     url_expiry: 604800
 
 vmaf:
