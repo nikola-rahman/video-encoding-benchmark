@@ -37,7 +37,7 @@ def probe_video(path: Path) -> dict:
 
 
 def prepare_video(input_path: Path, output_path: Path, trim: dict | None = None) -> None:
-    """Re-encode to H.264 CRF 18, no audio, with optional trim."""
+    """Re-encode to H.264 CRF 18, no audio, timestamps starting at 0."""
     cmd = ["ffmpeg", "-y"]
 
     if trim:
@@ -49,6 +49,7 @@ def prepare_video(input_path: Path, output_path: Path, trim: dict | None = None)
         cmd += ["-t", str(trim["duration"])]
 
     cmd += [
+        "-vf", "setpts=PTS-STARTPTS",
         "-c:v", "libx264",
         "-crf", "18",
         "-preset", "slow",
