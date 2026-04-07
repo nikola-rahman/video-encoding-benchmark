@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Download video samples from catalog.yaml using ffmpeg."""
+"""Download video samples from catalog.yaml."""
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -8,7 +9,8 @@ import yaml
 from tqdm import tqdm
 
 CATALOG_PATH = Path(__file__).parent / "catalog.yaml"
-DEFAULT_OUTPUT_DIR = Path("data/samples/raw")
+
+VIDEO_EXTENSIONS = {".mp4", ".ogv", ".mkv", ".webm", ".avi", ".mov"}
 
 
 def load_catalog(path: Path = CATALOG_PATH) -> list[dict]:
@@ -28,7 +30,6 @@ def probe_video(path: Path) -> dict:
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe failed: {result.stderr.strip()}")
 
-    import json
     data = json.loads(result.stdout)
     s = data.get("streams", [{}])[0]
     fmt = data.get("format", {})
@@ -55,7 +56,6 @@ def download_http(url: str, output_path: Path) -> None:
     import requests
     from tqdm import tqdm as tqdm_bar
 
-    # Use original file extension from URL
     ext = Path(url.split("?")[0].split("/")[-1]).suffix or ".mp4"
     output_path = output_path.with_suffix(ext)
 
@@ -86,8 +86,16 @@ METHODS = {
 }
 
 
+def find_existing(output_dir: Path, sid: str) -> Path | None:
+    matches = list(output_dir.glob(f"{sid}.*"))
+    for m in matches:
+        if m.suffix.lower() in VIDEO_EXTENSIONS:
+            return m
+    return None
+
+
 def run(
-    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    output_dir: Path,
     verticals: list[str] | None = None,
     ids: list[str] | None = None,
     force: bool = False,
@@ -113,7 +121,7 @@ def run(
         url = source.get("url")
         output_file = output_dir / f"{sid}.mp4"
 
-        if not force and list(output_dir.glob(f"{sid}.*")):
+        if not force and find_existing(output_dir, sid):
             succeeded.append(sid)
             continue
 
@@ -129,11 +137,10 @@ def run(
 
         try:
             dl_fn(url, output_file)
-            # Find the actual file (extension may differ from .mp4)
-            downloaded = list(output_dir.glob(f"{sid}.*"))
+            downloaded = find_existing(output_dir, sid)
             if not downloaded:
                 raise RuntimeError(f"Download produced no file for {sid}")
-            info = probe_video(downloaded[0])
+            info = probe_video(downloaded)
             tqdm.write(f"  {sid}: {info['width']}x{info['height']} {info['duration']:.0f}s")
             succeeded.append(sid)
         except Exception as e:
@@ -150,7 +157,7 @@ def run(
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Download video samples from catalog")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("output", type=Path, help="Output directory")
     parser.add_argument("--vertical", nargs="*")
     parser.add_argument("--id", nargs="*")
     parser.add_argument("--force", action="store_true", help="Re-download even if file exists")

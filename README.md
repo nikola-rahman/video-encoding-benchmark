@@ -37,9 +37,11 @@ report/                 # Report generation system
   charts.py             # All chart generators
   report.yaml           # Config: version, providers, thresholds
 data/                   # Runtime data (gitignored except .gitkeep)
-  samples/raw/          # Downloaded raw videos (any format)
-  inputs/               # Prepared benchmark inputs (H.264 CRF 18)
-  outputs/              # Encoded outputs by provider
+  samples/
+    raw/                # Layer 1: downloaded originals (any format, any duration)
+    prepared/           # Layer 2: re-encoded H.264 CRF 18, trimmed, benchmark-ready
+  outputs/              # Layer 3: encoded files by provider
+  results/              # Layer 4: VMAF scores, metadata
 research/               # Background research and pilot results
 ```
 
@@ -51,10 +53,10 @@ Edit `benchmark/samples/catalog.yaml` to define source videos. Each entry has an
 
 ```bash
 # Download all raw samples
-.venv/bin/python -m benchmark.samples.download
+.venv/bin/python -m benchmark.samples.download data/samples/raw
 
 # Download one vertical
-.venv/bin/python -m benchmark.samples.download --vertical ecommerce
+.venv/bin/python -m benchmark.samples.download data/samples/raw --vertical ecommerce
 
 # For manual sources (e.g. VIRAT), place files in data/samples/raw/{id}.mp4
 ```
@@ -64,16 +66,16 @@ Edit `benchmark/samples/catalog.yaml` to define source videos. Each entry has an
 Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Trims to duration specified in catalog.
 
 ```bash
-.venv/bin/python -m benchmark.samples.prepare
+.venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared
 
 # Prepare one vertical
-.venv/bin/python -m benchmark.samples.prepare --vertical security
+.venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared --vertical security
 
 # Re-encode even if output exists
-.venv/bin/python -m benchmark.samples.prepare --force
+.venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared --force
 ```
 
-Output goes to `data/inputs/`.
+Output goes to `data/samples/prepared/`.
 
 ### 3. Validate inputs
 
@@ -159,7 +161,8 @@ python -m benchmark run          # Run full pipeline
 ## Standalone Scripts
 
 ```
-python -m benchmark.samples.download   # Download raw video samples
-python -m benchmark.samples.prepare    # Prepare benchmark inputs (H.264 CRF 18)
-python -m report.generate              # Generate charts + render report
+python -m benchmark.samples.download <output_dir>                  # Download raw video samples
+python -m benchmark.samples.prepare <raw_dir> <output_dir>         # Prepare benchmark inputs
+python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload directory to S3
+python -m report.generate                                          # Generate charts + render report
 ```

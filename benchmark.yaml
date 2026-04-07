@@ -1,7 +1,7 @@
 data_dir: ./data
 
 inputs:
-  dir: ./data/inputs
+  dir: ./data/samples/prepared
 
 codecs: [av1, h265]
 

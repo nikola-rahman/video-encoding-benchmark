@@ -5,19 +5,15 @@ __pycache__/
 .env
 .DS_Store
 
-# Large data — keep directory structure via .gitkeep
-data/inputs/*
+# Data layers — keep directory structure via .gitkeep
+data/samples/raw/*
+data/samples/prepared/*
 data/outputs/*
-!data/inputs/.gitkeep
+data/results/*
+!data/samples/raw/.gitkeep
+!data/samples/prepared/.gitkeep
 !data/outputs/.gitkeep
-
-# Downloaded video samples
-data/samples/*
-!data/samples/.gitkeep
-
-# Pipeline run artifacts
-data/metadata.json
-data/vmaf_results.json
+!data/results/.gitkeep
 
 # Generated report artifacts
 report/output/*

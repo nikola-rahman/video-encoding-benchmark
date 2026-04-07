@@ -35,7 +35,7 @@ providers:
 <input_stem>_<codec>_<variant>/
 ```
 
-- `input_stem`: Must match a file in `data/inputs/` (e.g., `BigBuckBunny_720p_60s`)
+- `input_stem`: Must match a file in `data/samples/prepared/` (e.g., `ecom_watch`)
 - `codec`: One of `av1`, `h265`, `hevc`, `h264`, `vp9`
 - `variant`: Any label (e.g., `basic`, `medium`, `hyper`)
 

@@ -11,10 +11,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from benchmark.samples.catalog import load_catalog, load_catalog_raw, filter_catalog, find_raw_file
-
-RAW_DIR = Path("data/samples/raw")
-OUTPUT_DIR = Path("data/inputs")
+from benchmark.samples.catalog import load_catalog_raw, filter_catalog, find_raw_file
 
 
 def probe_video(path: Path) -> dict:
@@ -65,8 +62,8 @@ def prepare_video(input_path: Path, output_path: Path, trim: dict | None = None)
 
 
 def run(
-    raw_dir: Path = RAW_DIR,
-    output_dir: Path = OUTPUT_DIR,
+    raw_dir: Path,
+    output_dir: Path,
     verticals: list[str] | None = None,
     ids: list[str] | None = None,
     force: bool = False,
@@ -98,7 +95,6 @@ def run(
             continue
 
         try:
-            # Use per-source trim, or apply max_duration default for long videos
             trim = source.get("trim")
             if not trim and max_duration:
                 info = probe_video(raw_file)
@@ -129,10 +125,10 @@ def run(
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Prepare raw samples into benchmark inputs")
-    parser.add_argument("--raw-dir", type=Path, default=RAW_DIR)
-    parser.add_argument("--output", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("raw_dir", type=Path, help="Directory with raw downloads")
+    parser.add_argument("output_dir", type=Path, help="Output directory for prepared files")
     parser.add_argument("--vertical", nargs="*")
     parser.add_argument("--id", nargs="*")
     parser.add_argument("--force", action="store_true", help="Re-encode even if output exists")
     args = parser.parse_args()
-    run(raw_dir=args.raw_dir, output_dir=args.output, verticals=args.vertical, ids=args.id, force=args.force)
+    run(raw_dir=args.raw_dir, output_dir=args.output_dir, verticals=args.vertical, ids=args.id, force=args.force)
