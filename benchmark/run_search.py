@@ -53,7 +53,7 @@ def main():
     print(f"Codec:     {args.codec}")
     print(f"Video:     {input_file}")
     print(f"Target:    VMAF {args.vmaf}")
-    print(f"Tolerance: ±{args.tolerance}")
+    print(f"Tolerance: +{args.tolerance}")
     print(f"Max steps: {args.max_steps}")
     print()
 
