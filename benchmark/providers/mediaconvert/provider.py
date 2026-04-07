@@ -199,7 +199,7 @@ class MediaConvertProvider(Provider):
             Settings={
                 "Inputs": [{
                     "FileInput": video_url,
-                    "VideoSelector": {},
+                    "VideoSelector": {"PadVideo": "DISABLED"},
                 }],
                 "OutputGroups": [{
                     "Name": "File Group",
