@@ -6,8 +6,9 @@
 #   vertical  — industry vertical (ecommerce, ugc, archive, education, security)
 #   name      — human-readable description
 #   url       — download URL
-#   method    — download method: ffmpeg (m3u8/direct), yt-dlp (youtube/social), manual
+#   method    — download method: ffmpeg (m3u8/direct), yt-dlp (youtube/social), http, manual
 #   license   — content license
+#   trim      — optional: {start: seconds, duration: seconds}
 
 sources:
 
@@ -47,6 +48,7 @@ sources:
     url: "https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/12f1ae85-6ea2-42d7-a36b-97a30c19db92/default.jobtemplate.hls720.m3u8"
     method: ffmpeg
     license: "Amazon"
+    trim: {start: 0, duration: 120}
 
   # ── UGC ───────────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ sources:
     url: "https://archive.org/download/SpotNews1937/SpotNews1937.ogv"
     method: http
     license: "Public Domain"
+    trim: {start: 0, duration: 120}
 
   - id: archive_achievement_usa_1955
     vertical: archive
@@ -121,6 +124,7 @@ sources:
     url: "https://archive.org/download/Achievem1955/Achievem1955.ogv"
     method: http
     license: "Public Domain"
+    trim: {start: 0, duration: 120}
 
   - id: archive_experiments_1940
     vertical: archive
@@ -128,6 +132,7 @@ sources:
     url: "https://archive.org/download/Experime1940/Experime1940.ogv"
     method: http
     license: "Public Domain"
+    trim: {start: 0, duration: 120}
 
   # ── Education ─────────────────────────────────────────────────
 
@@ -138,39 +143,46 @@ sources:
     name: "VIRAT S_000001"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_002
     vertical: security
     name: "VIRAT S_000002"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_003
     vertical: security
     name: "VIRAT S_000003"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_004
     vertical: security
     name: "VIRAT S_000004"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_006
     vertical: security
     name: "VIRAT S_000006"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_101
     vertical: security
     name: "VIRAT S_000101"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
 
   - id: security_virat_102
     vertical: security
     name: "VIRAT S_000102"
     method: manual
     license: "VIRAT Dataset Agreement"
+    trim: {start: 0, duration: 120}
