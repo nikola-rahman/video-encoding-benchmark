@@ -6,7 +6,7 @@ import yaml
 
 CATALOG_PATH = Path(__file__).parent / "catalog.yaml"
 
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".mpg", ".mpeg"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".mpg", ".mpeg", ".ogv"}
 
 
 def load_catalog_raw(path: Path = CATALOG_PATH) -> dict:
