@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from benchmark.util.s3 import get_s3_client, upload_file, presign_url
+from benchmark.util.s3 import get_s3_client, get_bucket, upload_file, presign_url
 from benchmark.util.log import setup_logging
 
 log = setup_logging("upload")
@@ -14,12 +14,12 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".y4m", ".avi"}
 def run(config: dict, presign_only: bool = False, expires: int = 604800,
         update_urls: bool = False, files: list[str] | None = None):
     """Run the upload step."""
-    inputs_dir = Path(config.get("inputs", {}).get("dir", "./data/inputs"))
-    s3_cfg = config["storage"]["s3"]
-    bucket = s3_cfg["bucket"]
+    inputs_dir = Path(config.get("inputs", {}).get("dir", "./data/samples/prepared"))
+    s3_cfg = config.get("storage", {}).get("s3", {})
+    bucket = get_bucket()
     prefix = s3_cfg.get("prefix", "benchmark-inputs/")
 
-    s3_client = get_s3_client(config)
+    s3_client = get_s3_client()
 
     if files:
         video_files = []

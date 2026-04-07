@@ -1,6 +1,6 @@
-"""S3 client and operations consolidated from existing scripts."""
+"""S3 client and operations."""
 
-import sys
+import os
 from pathlib import Path
 
 import boto3
@@ -12,27 +12,47 @@ from benchmark.util.log import setup_logging
 log = setup_logging("s3")
 
 
-def get_s3_client(config: dict):
-    """Create an S3 client from the storage.s3 config section."""
-    s3_cfg = config["storage"]["s3"]
-    access_key = s3_cfg.get("access_key", "")
-    secret_key = s3_cfg.get("secret_key", "")
+def get_s3_client():
+    """Create an S3 client from environment variables.
 
-    if not access_key or not secret_key:
-        log.error("S3 access_key / secret_key not configured")
-        sys.exit(1)
+    Required env vars:
+        HIPPIUS_S3_ENDPOINT
+        HIPPIUS_S3_ACCESS_KEY
+        HIPPIUS_S3_SECRET_KEY
+
+    Optional:
+        HIPPIUS_S3_REGION (default: us-east-1)
+    """
+    endpoint = os.environ.get("HIPPIUS_S3_ENDPOINT")
+    access_key = os.environ.get("HIPPIUS_S3_ACCESS_KEY")
+    secret_key = os.environ.get("HIPPIUS_S3_SECRET_KEY")
+    region = os.environ.get("HIPPIUS_S3_REGION", "us-east-1")
+
+    if not endpoint or not access_key or not secret_key:
+        raise ValueError(
+            "S3 credentials not set. Required env vars: "
+            "HIPPIUS_S3_ENDPOINT, HIPPIUS_S3_ACCESS_KEY, HIPPIUS_S3_SECRET_KEY"
+        )
 
     return boto3.client(
         "s3",
-        endpoint_url=s3_cfg["endpoint"],
+        endpoint_url=endpoint,
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
-        region_name=s3_cfg.get("region", "us-east-1"),
+        region_name=region,
         config=BotoConfig(
             signature_version="s3v4",
             s3={"addressing_style": "path"},
         ),
     )
+
+
+def get_bucket() -> str:
+    """Get the S3 bucket name from environment."""
+    bucket = os.environ.get("HIPPIUS_S3_BUCKET")
+    if not bucket:
+        raise ValueError("HIPPIUS_S3_BUCKET env var not set")
+    return bucket
 
 
 def object_exists(s3_client, bucket: str, key: str) -> bool:

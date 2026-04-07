@@ -38,7 +38,7 @@ import requests
 from benchmark.providers.base import Provider, EncodingResult, Rendition
 from benchmark.util.ffmpeg import get_actual_bitrate
 from benchmark.util.log import setup_logging
-from benchmark.util.s3 import get_s3_client, download_prefix, delete_prefix
+from benchmark.util.s3 import get_s3_client, get_bucket, download_prefix, delete_prefix
 
 log = setup_logging("bitmovin")
 
@@ -49,8 +49,8 @@ class BitmovinProvider(Provider):
     def __init__(self, provider_name: str, config: dict):
         super().__init__(provider_name, config)
         self.provider_config = config.get("providers", {}).get("bitmovin", {})
-        self.api_key = self.provider_config.get("api_key", "")
-        self.s3_output_id = self.provider_config.get("s3_output_id", "")
+        self.api_key = os.environ.get("BITMOVIN_API_KEY", "")
+        self.s3_output_id = os.environ.get("BITMOVIN_S3_OUTPUT_ID", "")
         self.s3_output_base_path = self.provider_config.get("s3_output_base_path", "encoding-benchmarks/")
         self.per_title = self.provider_config.get("per_title", {})
         self._api = None
@@ -151,8 +151,8 @@ class BitmovinProvider(Provider):
             log.warning(f"  Skipping {encoding_id} (not finished)")
             return result
 
-        s3_client = get_s3_client(self.config)
-        bucket = self.config["storage"]["s3"]["bucket"]
+        s3_client = get_s3_client()
+        bucket = get_bucket()
 
         renditions = self._download_encoding_outputs(
             s3_client, encoding, fmp4_muxings, mp4_muxings, output_dir, bucket
@@ -187,8 +187,8 @@ class BitmovinProvider(Provider):
 
         log.info(f"Found {len(ids_to_process)} encoding(s) to download")
 
-        s3_client = get_s3_client(self.config)
-        bucket = self.config["storage"]["s3"]["bucket"]
+        s3_client = get_s3_client()
+        bucket = get_bucket()
 
         # Load video URLs for input matching
         video_urls = self._load_video_urls()
@@ -229,8 +229,8 @@ class BitmovinProvider(Provider):
     def cleanup(self, result: EncodingResult) -> None:
         """Delete Bitmovin encoding job and S3 output files."""
         api = self._get_api()
-        s3_client = get_s3_client(self.config)
-        bucket = self.config["storage"]["s3"]["bucket"]
+        s3_client = get_s3_client()
+        bucket = get_bucket()
 
         s3_prefix = f"{self.s3_output_base_path.rstrip('/')}/{result.encoding_name}/"
         log.info(f"  Deleting S3 prefix: {s3_prefix}")
@@ -252,8 +252,8 @@ class BitmovinProvider(Provider):
                     local_output_dir: Path | None = None) -> int:
         """Clean up multiple encodings. Returns count of deleted encodings."""
         api = self._get_api()
-        s3_client = get_s3_client(self.config)
-        bucket = self.config["storage"]["s3"]["bucket"]
+        s3_client = get_s3_client()
+        bucket = get_bucket()
 
         if encoding_ids:
             encodings = []
