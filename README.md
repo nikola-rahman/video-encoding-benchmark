@@ -86,7 +86,15 @@ Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Videos longer than `m
 .venv/bin/python -m benchmark.samples.upload data/samples/raw samples/raw
 ```
 
-### 4. Encode with providers
+### 4. Generate presigned URLs
+
+Cloud providers need HTTPS URLs to access input files. Generate presigned URLs from Hippius S3:
+
+```bash
+.venv/bin/python -m benchmark.samples.presign samples/prepared video_urls.txt
+```
+
+### 5. Encode with providers
 
 ```bash
 # Cloud providers (submit job)
@@ -103,13 +111,13 @@ Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Videos longer than `m
 .venv/bin/python -m benchmark scan vidaio
 ```
 
-### 5. Measure quality
+### 6. Measure quality
 
 ```bash
 .venv/bin/python -m benchmark measure
 ```
 
-### 6. Export and generate report
+### 7. Export and generate report
 
 ```bash
 # Export pipeline results to CSVs
@@ -160,6 +168,7 @@ python -m benchmark run          # Run full pipeline
 ```
 python -m benchmark.samples.download <local_dir> <s3_prefix>       # Download from S3
 python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload to S3
+python -m benchmark.samples.presign <s3_prefix> <output_file>      # Generate presigned URLs
 python -m benchmark.samples.source <output_dir>                    # Download from original sources
 python -m benchmark.samples.prepare <raw_dir> <output_dir>         # Prepare benchmark inputs
 python -m report.generate                                          # Generate charts + render report
