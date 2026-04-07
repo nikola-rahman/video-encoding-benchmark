@@ -236,6 +236,7 @@ class MediaConvertProvider(Provider):
                 "H265Settings": {
                     "RateControlMode": "QVBR",
                     "QvbrSettings": {"QvbrQualityLevel": qvbr_level},
+                    "QualityTuningLevel": "MULTI_PASS_HQ",
                     "MaxBitrate": max_bitrate,
                 },
             }
