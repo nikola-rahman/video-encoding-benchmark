@@ -96,6 +96,8 @@ class Provider(ABC):
         Higher values must mean higher quality (larger files).
         If the native scale is inverted (e.g. CRF where lower = better),
         the provider must flip it internally.
+
+        Only needed if using the default binary search in encode_to_target_vmaf().
         """
         raise NotImplementedError(f"{self.name} does not define a quality range")
 
@@ -104,77 +106,77 @@ class Provider(ABC):
 
         The quality value is on the scale returned by quality_range().
         Returns an EncodingResult with renditions populated (file downloaded and ready for VMAF).
+
+        Only needed if using the default binary search in encode_to_target_vmaf().
         """
         raise NotImplementedError(f"{self.name} does not support encode_at_quality")
 
+    def encode_to_target_vmaf(
+        self,
+        input_file: Path,
+        codec: str,
+        target_vmaf: float,
+        measure_vmaf: callable,
+        tolerance: float = 1.0,
+        max_steps: int = 8,
+        **kwargs,
+    ) -> tuple["EncodingResult", float, list[dict]]:
+        """Encode a file to hit a target VMAF score.
 
-def search_quality(
-    provider: "Provider",
-    input_file: Path,
-    codec: str,
-    target_vmaf: float,
-    measure_vmaf: callable,
-    tolerance: float = 0.5,
-    max_steps: int = 10,
-    **kwargs,
-) -> tuple[EncodingResult, float, list[dict]]:
-    """Binary search over a provider's quality range to find the setting that produces target VMAF.
+        Default implementation uses binary search over quality_range().
+        Providers with native VMAF targeting (e.g. Vidaio) should override this.
 
-    Args:
-        provider: Provider instance with quality_range() and encode_at_quality().
-        input_file: Source video file.
-        codec: Codec to encode with.
-        target_vmaf: Desired VMAF score.
-        measure_vmaf: Callable(reference: Path, distorted: Path) -> float.
-            Measures VMAF between two files.
-        tolerance: Stop when VMAF is within this many points of target.
-        max_steps: Maximum number of encode iterations.
-        **kwargs: Passed through to encode_at_quality().
+        Args:
+            input_file: Source video file.
+            codec: Codec to encode with.
+            target_vmaf: Desired VMAF score.
+            measure_vmaf: Callable(reference: Path, distorted: Path) -> float.
+            tolerance: Stop when VMAF is within this many points of target.
+            max_steps: Maximum number of encode iterations.
 
-    Returns:
-        (best_result, best_vmaf, history) where history is a list of
-        {quality, vmaf, encoding_name} dicts for every encode attempted.
-    """
-    lo, hi = provider.quality_range(codec)
-    history = []
-    best_result = None
-    best_vmaf = 0
-    best_distance = float("inf")
+        Returns:
+            (best_result, best_vmaf, history) where history is a list of
+            {quality, vmaf, encoding_name} dicts for every encode attempted.
+        """
+        lo, hi = self.quality_range(codec)
+        history = []
+        best_result = None
+        best_vmaf = 0
+        best_distance = float("inf")
 
-    for step in range(max_steps):
-        quality = (lo + hi) / 2
-        log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
+        for step in range(max_steps):
+            quality = (lo + hi) / 2
+            log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
 
-        result = provider.encode_at_quality(input_file, codec, quality, **kwargs)
+            result = self.encode_at_quality(input_file, codec, quality, **kwargs)
 
-        # Measure VMAF on the first rendition
-        if not result.renditions:
-            raise RuntimeError(f"encode_at_quality returned no renditions at quality={quality}")
+            if not result.renditions:
+                raise RuntimeError(f"encode_at_quality returned no renditions at quality={quality}")
 
-        distorted = result.renditions[0].local_file
-        vmaf = measure_vmaf(input_file, distorted)
-        log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
+            distorted = result.renditions[0].local_file
+            vmaf = measure_vmaf(input_file, distorted)
+            log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
 
-        history.append({
-            "quality": quality,
-            "vmaf": vmaf,
-            "encoding_name": result.encoding_name,
-        })
+            history.append({
+                "quality": quality,
+                "vmaf": vmaf,
+                "encoding_name": result.encoding_name,
+            })
 
-        distance = abs(vmaf - target_vmaf)
-        if distance < best_distance:
-            best_distance = distance
-            best_result = result
-            best_vmaf = vmaf
+            distance = abs(vmaf - target_vmaf)
+            if distance < best_distance:
+                best_distance = distance
+                best_result = result
+                best_vmaf = vmaf
 
-        if distance <= tolerance:
-            log.info(f"  Converged: VMAF {vmaf:.2f} within tolerance {tolerance}")
-            break
+            if distance <= tolerance:
+                log.info(f"  Converged: VMAF {vmaf:.2f} within tolerance {tolerance}")
+                break
 
-        if vmaf < target_vmaf:
-            lo = quality
-        else:
-            hi = quality
+            if vmaf < target_vmaf:
+                lo = quality
+            else:
+                hi = quality
 
-    log.info(f"  Best: quality={history[-1]['quality']:.2f}, VMAF={best_vmaf:.2f} ({len(history)} encodes)")
-    return best_result, best_vmaf, history
+        log.info(f"  Best: quality={history[-1]['quality']:.2f}, VMAF={best_vmaf:.2f} ({len(history)} encodes)")
+        return best_result, best_vmaf, history

@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 
 from benchmark.config import load_config
 from benchmark.providers import get_provider
-from benchmark.providers.base import search_quality
 from benchmark.util.ffmpeg import run_vmaf, extract_vmaf_score
 
 load_dotenv()
@@ -58,8 +57,7 @@ def main():
     print(f"Max steps: {args.max_steps}")
     print()
 
-    result, vmaf, history = search_quality(
-        provider=provider,
+    result, vmaf, history = provider.encode_to_target_vmaf(
         input_file=input_file,
         codec=args.codec,
         target_vmaf=args.vmaf,
