@@ -163,14 +163,16 @@ class Provider(ABC):
                 "encoding_name": result.encoding_name,
             })
 
-            distance = abs(vmaf - target_vmaf)
-            if distance < best_distance:
-                best_distance = distance
-                best_result = result
-                best_vmaf = vmaf
+            # Track best result that meets or exceeds target
+            if vmaf >= target_vmaf:
+                overshoot = vmaf - target_vmaf
+                if best_result is None or overshoot < (best_vmaf - target_vmaf):
+                    best_result = result
+                    best_vmaf = vmaf
 
-            if distance <= tolerance:
-                log.info(f"  Converged: VMAF {vmaf:.2f} within tolerance {tolerance}")
+            # Converged: meets target and within tolerance above it
+            if target_vmaf <= vmaf <= target_vmaf + tolerance:
+                log.info(f"  Converged: VMAF {vmaf:.2f} (target {target_vmaf}, tolerance +{tolerance})")
                 break
 
             if vmaf < target_vmaf:
@@ -178,5 +180,13 @@ class Provider(ABC):
             else:
                 hi = quality
 
-        log.info(f"  Best: quality={history[-1]['quality']:.2f}, VMAF={best_vmaf:.2f} ({len(history)} encodes)")
+        if best_result is None:
+            # Never hit the target — return the highest VMAF we got
+            best_entry = max(history, key=lambda h: h["vmaf"])
+            best_vmaf = best_entry["vmaf"]
+            log.warning(f"  Did not reach target VMAF {target_vmaf}. Best: {best_vmaf:.2f}")
+            # Re-encode at the best quality we found
+            best_result = self.encode_at_quality(input_file, codec, best_entry["quality"], **kwargs)
+
+        log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")
         return best_result, best_vmaf, history
