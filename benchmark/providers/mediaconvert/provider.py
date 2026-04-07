@@ -71,7 +71,8 @@ class MediaConvertProvider(Provider):
         """Submit a job, wait for completion, download the output."""
         video_url = kwargs.get("video_url")
         if not video_url:
-            s3_key = f"{self.s3_output_prefix.rstrip('/')}/inputs/{input_file.name}"
+            s3_prefix = self.config["storage"]["s3"]["prefix"]
+            s3_key = f"{s3_prefix}/{input_file.name}"
             video_url = self.prepare_input(input_file, s3_key)
 
         # Submit
