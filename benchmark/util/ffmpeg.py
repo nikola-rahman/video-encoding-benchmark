@@ -248,58 +248,43 @@ def run_vmaf(
     threads: int | None = None,
     model: str | None = None,
 ) -> dict:
-    """Run VMAF comparison using named pipes for y4m conversion.
+    """Run VMAF comparison using ffmpeg's libvmaf filter.
+    Uses vmaf_v0.6.1neg model by default.
     Returns parsed VMAF JSON result."""
     reference_mp4 = str(reference_mp4)
     distorted_mp4 = str(distorted_mp4)
     output_json = str(output_json)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ref_fifo = os.path.join(tmpdir, "ref.y4m")
-        dist_fifo = os.path.join(tmpdir, "dist.y4m")
-        os.mkfifo(ref_fifo)
-        os.mkfifo(dist_fifo)
+    if model is None:
+        model = "version=vmaf_v0.6.1neg"
 
-        def build_ffmpeg_cmd(input_path, fifo_path):
-            cmd = ["ffmpeg", "-v", "error", "-i", input_path]
-            if start_time is not None:
-                cmd += ["-ss", str(start_time)]
-            if duration is not None:
-                cmd += ["-t", str(duration)]
-            cmd += ["-pix_fmt", "yuv420p", "-f", "yuv4mpegpipe", "-y", fifo_path]
-            return cmd
+    vmaf_opts = [f"model={model}", f"log_path={output_json}", "log_fmt=json"]
+    if threads is not None:
+        vmaf_opts.append(f"n_threads={threads}")
 
-        ref_cmd = build_ffmpeg_cmd(reference_mp4, ref_fifo)
-        dist_cmd = build_ffmpeg_cmd(distorted_mp4, dist_fifo)
+    filter_str = f"libvmaf={':'.join(vmaf_opts)}"
 
-        vmaf_cmd = [
-            "vmaf",
-            "-r", ref_fifo,
-            "-d", dist_fifo,
-            "--json",
-            "-o", output_json,
-            "-q",
-        ]
-        if threads is not None:
-            vmaf_cmd += ["--threads", str(threads)]
-        if model:
-            vmaf_cmd += ["-m", model]
+    cmd = ["ffmpeg", "-v", "error"]
 
-        ref_proc = subprocess.Popen(ref_cmd, stderr=subprocess.PIPE)
-        dist_proc = subprocess.Popen(dist_cmd, stderr=subprocess.PIPE)
-        vmaf_result = subprocess.run(vmaf_cmd, capture_output=True, text=True)
+    if start_time is not None:
+        cmd += ["-ss", str(start_time)]
+    cmd += ["-i", str(distorted_mp4)]
 
-        ref_proc.wait()
-        dist_proc.wait()
+    if start_time is not None:
+        cmd += ["-ss", str(start_time)]
+    cmd += ["-i", str(reference_mp4)]
 
-        if ref_proc.returncode != 0:
-            stderr = ref_proc.stderr.read().decode() if ref_proc.stderr else ""
-            raise RuntimeError(f"ffmpeg (reference) failed: {stderr}")
-        if dist_proc.returncode != 0:
-            stderr = dist_proc.stderr.read().decode() if dist_proc.stderr else ""
-            raise RuntimeError(f"ffmpeg (distorted) failed: {stderr}")
-        if vmaf_result.returncode != 0:
-            raise RuntimeError(f"vmaf failed: {vmaf_result.stderr}")
+    if duration is not None:
+        cmd += ["-t", str(duration)]
+
+    cmd += [
+        "-lavfi", filter_str,
+        "-f", "null", "-",
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg VMAF failed: {result.stderr.strip()[-500:]}")
 
     with open(output_json) as f:
         return json.load(f)
