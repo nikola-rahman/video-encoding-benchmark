@@ -11,7 +11,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from benchmark.samples.catalog import load_catalog, filter_catalog, find_raw_file
+from benchmark.samples.catalog import load_catalog, load_catalog_raw, filter_catalog, find_raw_file
 
 RAW_DIR = Path("data/samples/raw")
 OUTPUT_DIR = Path("data/inputs")
@@ -71,7 +71,9 @@ def run(
     ids: list[str] | None = None,
     force: bool = False,
 ):
-    catalog = filter_catalog(load_catalog(), verticals, ids)
+    catalog_data = load_catalog_raw()
+    max_duration = catalog_data.get("max_duration")
+    catalog = filter_catalog(catalog_data.get("sources", []), verticals, ids)
     if not catalog:
         print("No sources match filters.")
         return
@@ -96,7 +98,14 @@ def run(
             continue
 
         try:
-            prepare_video(raw_file, out_file, trim=source.get("trim"))
+            # Use per-source trim, or apply max_duration default for long videos
+            trim = source.get("trim")
+            if not trim and max_duration:
+                info = probe_video(raw_file)
+                if info["duration"] > max_duration:
+                    trim = {"start": 0, "duration": max_duration}
+
+            prepare_video(raw_file, out_file, trim=trim)
             info = probe_video(out_file)
             tqdm.write(f"  {sid}: {info['width']}x{info['height']} {info['duration']:.0f}s {info['codec']}")
             ready.append(sid)

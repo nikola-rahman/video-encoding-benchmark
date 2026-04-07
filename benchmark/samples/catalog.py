@@ -9,10 +9,13 @@ CATALOG_PATH = Path(__file__).parent / "catalog.yaml"
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".mpg", ".mpeg"}
 
 
-def load_catalog(path: Path = CATALOG_PATH) -> list[dict]:
+def load_catalog_raw(path: Path = CATALOG_PATH) -> dict:
     with open(path) as f:
-        data = yaml.safe_load(f)
-    return data.get("sources", [])
+        return yaml.safe_load(f)
+
+
+def load_catalog(path: Path = CATALOG_PATH) -> list[dict]:
+    return load_catalog_raw(path).get("sources", [])
 
 
 def filter_catalog(

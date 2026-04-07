@@ -47,7 +47,7 @@ research/               # Background research and pilot results
 
 ### 1. Get video samples
 
-Edit `benchmark/samples/catalog.yaml` to define source videos. Each entry has an id, vertical, URL, and download method (ffmpeg, yt-dlp, http, or manual).
+Edit `benchmark/samples/catalog.yaml` to define source videos. Each entry has an id, vertical, URL, and download method (ffmpeg, yt-dlp, http, or manual). Videos longer than `max_duration` (default 120s) are automatically trimmed from the start. Per-source `trim` settings override the default.
 
 ```bash
 # Download all raw samples
