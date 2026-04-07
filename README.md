@@ -49,47 +49,44 @@ research/               # Background research and pilot results
 
 ### 1. Get video samples
 
-Edit `benchmark/samples/catalog.yaml` to define source videos. Each entry has an id, vertical, URL, and download method (ffmpeg, yt-dlp, http, or manual). Videos longer than `max_duration` (default 120s) are automatically trimmed from the start. Per-source `trim` settings override the default.
+Download prepared samples from S3 (the default path):
 
 ```bash
-# Download all raw samples
-.venv/bin/python -m benchmark.samples.download data/samples/raw
+# Download prepared benchmark inputs from S3
+.venv/bin/python -m benchmark.samples.download data/samples/prepared samples/prepared
 
-# Download one vertical
-.venv/bin/python -m benchmark.samples.download data/samples/raw --vertical ecommerce
+# Download raw originals from S3
+.venv/bin/python -m benchmark.samples.download data/samples/raw samples/raw
+```
+
+To build samples from scratch (first time setup or adding new videos):
+
+```bash
+# Download from original sources (YouTube, archive.org, etc.)
+.venv/bin/python -m benchmark.samples.source data/samples/raw
 
 # For manual sources (e.g. VIRAT), place files in data/samples/raw/{id}.mp4
 ```
 
 ### 2. Prepare benchmark inputs
 
-Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Trims to duration specified in catalog.
+Re-encodes all raw samples to H.264 CRF 18, no audio, MP4. Videos longer than `max_duration` (default 120s) are automatically trimmed. Per-source `trim` settings in `catalog.yaml` override the default.
 
 ```bash
 .venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared
-
-# Prepare one vertical
-.venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared --vertical security
-
-# Re-encode even if output exists
-.venv/bin/python -m benchmark.samples.prepare data/samples/raw data/samples/prepared --force
 ```
 
-Output goes to `data/samples/prepared/`.
-
-### 3. Validate inputs
+### 3. Upload to S3
 
 ```bash
-.venv/bin/python -m benchmark preprocess --fix
+# Upload prepared inputs
+.venv/bin/python -m benchmark.samples.upload data/samples/prepared samples/prepared
+
+# Upload raw originals
+.venv/bin/python -m benchmark.samples.upload data/samples/raw samples/raw
 ```
 
-### 4. Upload to S3
-
-```bash
-.venv/bin/python -m benchmark upload --update-urls
-```
-
-### 5. Encode with providers
+### 4. Encode with providers
 
 ```bash
 # Cloud providers (submit job)
@@ -106,13 +103,13 @@ Output goes to `data/samples/prepared/`.
 .venv/bin/python -m benchmark scan vidaio
 ```
 
-### 6. Measure quality
+### 5. Measure quality
 
 ```bash
 .venv/bin/python -m benchmark measure
 ```
 
-### 7. Export and generate report
+### 6. Export and generate report
 
 ```bash
 # Export pipeline results to CSVs
@@ -161,8 +158,9 @@ python -m benchmark run          # Run full pipeline
 ## Standalone Scripts
 
 ```
-python -m benchmark.samples.download <output_dir>                  # Download raw video samples
+python -m benchmark.samples.download <local_dir> <s3_prefix>       # Download from S3
+python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload to S3
+python -m benchmark.samples.source <output_dir>                    # Download from original sources
 python -m benchmark.samples.prepare <raw_dir> <output_dir>         # Prepare benchmark inputs
-python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload directory to S3
 python -m report.generate                                          # Generate charts + render report
 ```
