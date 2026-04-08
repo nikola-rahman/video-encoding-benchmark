@@ -1,64 +1,72 @@
 # Brightcove Zencoder
 
-Enterprise cloud transcoding API from Brightcove. Zencoder provides granular control over codec, quality, speed, and output settings — making it one of the more configurable providers in the benchmark.
+Cloud transcoding API from Brightcove. Supports H.265/HEVC and AV1 with quality (1-5) and CRF (0-51) controls.
 
 ## Status
 
-**Not yet implemented.** All methods raise `NotImplementedError`.
+**Setup verified.** Provider implementation in progress.
 
-## Credentials
+## Setup
 
-| Variable | Description |
-|----------|-------------|
-| `ZENCODER_API_KEY` | Zencoder API key |
-| `ZENCODER_S3_OUTPUT_BUCKET` | S3 bucket for encoded outputs |
+### 1. Create account
 
 Sign up at https://app.zencoder.com/signup (includes free integration/test mode).
 
-## Config (benchmark.yaml)
+### 2. Grant Zencoder access to AWS S3 output bucket
 
-```yaml
-providers:
-  zencoder:
-    enabled: true
-    api_key: ${ZENCODER_API_KEY}
-    s3_output_bucket: ${ZENCODER_S3_OUTPUT_BUCKET}
-    s3_output_prefix: benchmark-outputs/
-```
-
-## SDK
+Zencoder writes outputs to AWS S3. Add a bucket policy granting Zencoder's AWS account access:
 
 ```bash
-uv add zencoder
+aws s3api put-bucket-policy --bucket <bucket> --region us-east-1 --policy '{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ZencoderAccess",
+      "Effect": "Allow",
+      "Principal": {"AWS": "arn:aws:iam::<account-id>:root"},
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectAcl",
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:ListMultipartUploadParts",
+        "s3:ListBucketMultipartUploads",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<bucket>",
+        "arn:aws:s3:::<bucket>/*"
+      ]
+    }
+  ]
+}'
 ```
 
-- **GitHub:** https://github.com/zencoder/zencoder-py
-- **Python docs:** https://zencoder.readthedocs.io/en/stable/usage.html
-- **API module reference:** https://zencoder.readthedocs.io/en/latest/zencoder.html
+### 3. Add credentials to .env
+
+```
+ZENCODER_API_KEY=your_full_access_api_key
+```
+
+## Input files
+
+Zencoder reads inputs via HTTPS URLs. The benchmark generates presigned URLs from Hippius S3 via `prepare_input()`.
+
+## Output files
+
+Zencoder writes to AWS S3 bucket `<bucket>`. Use `s3+us-east-1://bucket/prefix/` format for the output URL.
+
+## Encoding settings
+
+Quality parameter (1-5) with best speed (1 = slowest/best).
+
+- `video_codec`: `hevc` for H.265, `av1` for AV1
+- `quality`: 1 (lowest) to 5 (highest)
+- `speed`: 1 (slowest/best) to 5 (fastest) — we use 1 for best compression
 
 ## Key documentation
 
 - **API Reference:** https://zencoder.support.brightcove.com/references/reference.html
 - **Legacy API docs:** https://app.zencoder.com/docs/api
 - **Pricing:** https://zencoder.com/en/file-transcoding/pricing
-- **Supported formats & codecs:** https://zencoder.com/en/formats
-
-### Job workflow
-
-- **Create job:** `POST https://app.zencoder.com/api/v2/jobs` with `input` URL and `outputs` array
-- **Job progress:** `GET https://app.zencoder.com/api/v2/jobs/{id}/progress.json`
-- **Notifications/webhooks:** https://app.zencoder.com/docs/api/encoding/notifications/notifications
-
-### Quality & encoding settings
-
-- **Quality / rate control:** https://app.zencoder.com/docs/api/encoding/rate-control/quality
-- Set `"video_codec": "hevc"` for H.265, `"video_codec": "av1"` for AV1
-- `quality` parameter: 1 (lowest) to 5 (highest)
-- `speed` parameter: 1 (slowest/best quality) to 5 (fastest)
-
-## Notes
-
-- Both H.265/HEVC and AV1 are supported as output codecs.
-- The REST API base URL is `https://app.zencoder.com/api/v2/`.
-- Outputs can be written to S3, GCS, FTP, or HTTP destinations.
-- The Python SDK wraps the REST API: `Zencoder().job.create(input_url, outputs=[...])`.
+- **Quality settings:** https://app.zencoder.com/docs/api/encoding/rate-control/quality
