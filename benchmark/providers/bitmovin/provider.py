@@ -60,12 +60,11 @@ class BitmovinProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    def quality_range(self, codec: str) -> tuple[float, float]:
-        """CRF range inverted: we return (min_quality, max_quality) where higher = better.
-        Internally maps to CRF where lower = better quality."""
+    def quality_range(self, codec: str) -> tuple[float, float, None]:
+        """CRF range inverted. Continuous."""
         if codec == "av1":
-            return (0.0, 63.0)  # CRF 63 (worst) to CRF 0 (best)
-        return (0.0, 51.0)  # CRF 51 (worst) to CRF 0 (best)
+            return (0.0, 63.0, None)
+        return (0.0, 51.0, None)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Encode at a quality level. quality is on our scale (higher = better).

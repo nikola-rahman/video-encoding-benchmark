@@ -44,9 +44,9 @@ class ZencoderProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    def quality_range(self, codec: str) -> tuple[float, float]:
-        """Zencoder quality 1-5. Higher = better quality."""
-        return (1.0, 5.0)
+    def quality_range(self, codec: str) -> tuple[float, float, float]:
+        """Zencoder quality 1-5 (integer only). Higher = better quality."""
+        return (1.0, 5.0, 1.0)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Submit a job, wait for completion, download the output."""

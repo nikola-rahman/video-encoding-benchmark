@@ -63,9 +63,9 @@ class MediaConvertProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    def quality_range(self, codec: str) -> tuple[float, float]:
-        """QVBR quality level 1-10. Higher = better quality."""
-        return (1.0, 10.0)
+    def quality_range(self, codec: str) -> tuple[float, float, None]:
+        """QVBR quality level 1-10 with fine-tune. Continuous."""
+        return (1.0, 10.0, None)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Submit a job, wait for completion, download the output."""
@@ -192,7 +192,7 @@ class MediaConvertProvider(Provider):
         height = stream_info.get("streams", [{}])[0].get("height", 1080)
         max_bitrate = _max_bitrate_for_height(height)
 
-        codec_settings = self._build_codec_settings(codec, int(qvbr_level), max_bitrate)
+        codec_settings = self._build_codec_settings(codec, qvbr_level, max_bitrate)
 
         job = mc.create_job(
             Role=self.role_arn,
@@ -228,14 +228,21 @@ class MediaConvertProvider(Provider):
         )
 
     @staticmethod
-    def _build_codec_settings(codec: str, qvbr_level: int, max_bitrate: int) -> dict:
-        """Build codec settings using QVBR with AWS defaults."""
+    def _build_codec_settings(codec: str, qvbr_level: float, max_bitrate: int) -> dict:
+        """Build codec settings using QVBR with fine-tune."""
+        level = int(qvbr_level)
+        fine_tune = round(qvbr_level - level, 2)
+
+        qvbr_settings = {"QvbrQualityLevel": level}
+        if fine_tune != 0:
+            qvbr_settings["QvbrQualityLevelFineTune"] = fine_tune
+
         if codec == "h265":
             return {
                 "Codec": "H_265",
                 "H265Settings": {
                     "RateControlMode": "QVBR",
-                    "QvbrSettings": {"QvbrQualityLevel": qvbr_level},
+                    "QvbrSettings": qvbr_settings,
                     "QualityTuningLevel": "MULTI_PASS_HQ",
                     "MaxBitrate": max_bitrate,
                 },
@@ -245,7 +252,7 @@ class MediaConvertProvider(Provider):
                 "Codec": "AV1",
                 "Av1Settings": {
                     "RateControlMode": "QVBR",
-                    "QvbrSettings": {"QvbrQualityLevel": qvbr_level},
+                    "QvbrSettings": qvbr_settings,
                     "MaxBitrate": max_bitrate,
                 },
             }

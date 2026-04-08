@@ -90,12 +90,15 @@ class Provider(ABC):
         """
         raise NotImplementedError(f"{self.name} does not implement prepare_input")
 
-    def quality_range(self, codec: str) -> tuple[float, float]:
-        """Return (min, max) of the provider's quality setting.
+    def quality_range(self, codec: str) -> tuple[float, float, float | None]:
+        """Return (min, max, step) of the provider's quality setting.
 
         Higher values must mean higher quality (larger files).
         If the native scale is inverted (e.g. CRF where lower = better),
         the provider must flip it internally.
+
+        step: minimum meaningful increment. None means continuous (any float).
+              e.g. 1.0 for integer-only parameters like Zencoder quality 1-5.
 
         Only needed if using the default binary search in encode_to_target_vmaf().
         """
@@ -138,14 +141,22 @@ class Provider(ABC):
             (best_result, best_vmaf, history) where history is a list of
             {quality, vmaf, encoding_name} dicts for every encode attempted.
         """
-        lo, hi = self.quality_range(codec)
+        range_result = self.quality_range(codec)
+        lo, hi = range_result[0], range_result[1]
+        q_step = range_result[2] if len(range_result) > 2 else None
         history = []
         best_result = None
         best_vmaf = 0
-        best_distance = float("inf")
+        tried = set()
 
         for step in range(max_steps):
             quality = (lo + hi) / 2
+            if q_step is not None:
+                quality = round(quality / q_step) * q_step
+                if quality in tried:
+                    log.info(f"  No more values to try in range {lo:.2f}-{hi:.2f}")
+                    break
+            tried.add(quality)
             log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
 
             result = self.encode_at_quality(input_file, codec, quality, **kwargs)
