@@ -273,7 +273,6 @@ class BitmovinProvider(Provider):
         if codec == "h265":
             config = H265VideoConfiguration(
                 name=f"H.265 CRF {crf:.0f}",
-                preset_configuration=PresetConfiguration.VOD_HIGH_QUALITY,
                 crf=crf,
             )
             return api.encoding.configurations.video.h265.create(
