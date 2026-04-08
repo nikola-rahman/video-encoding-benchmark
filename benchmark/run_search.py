@@ -108,13 +108,13 @@ def main():
     parser.add_argument("--vmaf", type=float, required=True, help="Target VMAF score")
     parser.add_argument("--tolerance", type=float, default=1.0, help="VMAF tolerance (default: 1.0)")
     parser.add_argument("--max-steps", type=int, default=8, help="Max search steps (default: 8)")
-    parser.add_argument("--threads", type=int, default=None, help="VMAF threads")
+    parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
     args = parser.parse_args()
 
     config = load_config(args.config)
     videos = resolve_videos(args, config)
-    measure_vmaf = make_measure_vmaf(threads=args.threads)
+    measure_vmaf = make_measure_vmaf(threads=args.vmaf_threads)
 
     print(f"Providers: {', '.join(args.provider)}")
     print(f"Codec:     {args.codec}")
@@ -123,7 +123,7 @@ def main():
         print(f"  {v.name}")
     print(f"Target:    VMAF {args.vmaf}")
     print(f"Tolerance: +{args.tolerance}")
-    print(f"Threads:   {args.threads or 'auto'}")
+    print(f"VMAF threads: {args.vmaf_threads or 'auto'}")
     print()
 
     # Build all (provider, video) combinations
