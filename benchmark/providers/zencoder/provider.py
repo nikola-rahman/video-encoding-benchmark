@@ -25,10 +25,7 @@ class ZencoderProvider(Provider):
         super().__init__(provider_name, config)
         self.provider_config = config["providers"]["zencoder"]
         self.api_key = os.environ["ZENCODER_API_KEY"]
-        self.s3_output_bucket = os.environ.get(
-            "ZENCODER_S3_OUTPUT_BUCKET",
-            os.environ.get("MEDIACONVERT_S3_OUTPUT_BUCKET", ""),
-        )
+        self.s3_output_bucket = os.environ["ZENCODER_S3_OUTPUT_BUCKET"]
         self.s3_output_prefix = self.provider_config.get("s3_output_prefix", "zencoder-outputs")
         self.s3_region = os.environ.get("AWS_REGION", "us-east-1")
 
