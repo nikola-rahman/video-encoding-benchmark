@@ -66,34 +66,34 @@ To build samples from scratch (first time or adding new videos):
 .venv/bin/python -m benchmark.samples.upload data/samples/prepared samples/prepared
 ```
 
-### 2. Encode with providers
+### 2. Encode to target VMAF
 
-Each provider handles its own input preparation (presigning, S3 access, etc.) internally.
+Encodes each video on each provider to a target VMAF. Logs everything to `data/results/`.
 
 ```bash
-# Cloud providers (submit job)
-.venv/bin/python -m benchmark encode --provider mediaconvert --codec h265
+# All providers, one vertical
+.venv/bin/python -m benchmark.encode --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93
 
-# Poll until finished
-.venv/bin/python -m benchmark poll --provider mediaconvert
+# One provider, one video
+.venv/bin/python -m benchmark.encode --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93
 
-# Download encoded outputs
-.venv/bin/python -m benchmark download --provider mediaconvert
-
-# Manual providers (e.g. Vidaio) — place files and scan
-.venv/bin/python -m benchmark scan vidaio
+# Control VMAF concurrency
+.venv/bin/python -m benchmark.encode ... --vmaf-threads 8 --vmaf-workers 4
 ```
 
-### 3. Measure quality
+Results: `data/results/run_<timestamp>.jsonl`
+
+### 3. Generate report data
+
+Reads JSONL run logs, deduplicates by latest timestamp, produces CSVs.
 
 ```bash
-.venv/bin/python -m benchmark measure
+.venv/bin/python -m benchmark.report_data data/results/ report/data/
 ```
 
-### 4. Export and generate report
+### 4. Generate report
 
 ```bash
-.venv/bin/python -m benchmark export
 .venv/bin/python -m report.generate
 # Output: report/output/latest/report.md
 ```
@@ -163,12 +163,14 @@ Each provider has its own README with setup steps and API docs:
 - `report/report.yaml` — report config (version, thresholds, projections)
 - `.env` — all credentials (not committed)
 
-## Standalone Scripts
+## Scripts
 
 ```
+python -m benchmark.encode ...                                     # Encode to target VMAF
+python -m benchmark.report_data <results_dir> <output_dir>         # JSONL → report CSVs
 python -m benchmark.samples.download <local_dir> <s3_prefix>       # Download from S3
 python -m benchmark.samples.upload <local_dir> <s3_prefix>         # Upload to S3
 python -m benchmark.samples.source <output_dir>                    # Download from original sources
 python -m benchmark.samples.prepare <raw_dir> <output_dir>         # Prepare benchmark inputs
-python -m report.generate                                          # Generate charts + render report
+python -m report.generate                                          # Generate charts + report
 ```

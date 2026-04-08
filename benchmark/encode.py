@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 """Run binary quality search across providers and videos.
 
+Writes a JSONL audit log to data/results/run_<timestamp>.jsonl with every
+event: search starts, encodes, VMAF measurements, convergence.
+
 Usage:
-    # Single provider, single video
-    python -m benchmark.run_search --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93
-
-    # Multiple providers, single video
-    python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --video ecom_watch.mp4 --vmaf 93
-
-    # Multiple providers, full vertical
     python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93
-
-    # Control VMAF concurrency
-    python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93 --vmaf-workers 4 --vmaf-threads 8
+    python -m benchmark.run_search --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93 --vmaf-threads 8
 """
 
 import argparse
+import json
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,6 +25,21 @@ from benchmark.samples.catalog import load_catalog, filter_catalog
 from benchmark.util.ffmpeg import run_vmaf, extract_vmaf_score
 
 load_dotenv()
+
+
+class EventLog:
+    def __init__(self, path: Path):
+        self._path = path
+        self._lock = threading.Lock()
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    def log(self, event: str, **data):
+        entry = {"event": event, "timestamp": datetime.now(timezone.utc).isoformat(), **data}
+        line = json.dumps(entry)
+        with self._lock:
+            with open(self._path, "a") as f:
+                f.write(line + "\n")
+        return entry
 
 
 def make_measure_vmaf(vmaf_threads: int | None = None, semaphore: threading.Semaphore | None = None):
@@ -49,7 +61,13 @@ def make_measure_vmaf(vmaf_threads: int | None = None, semaphore: threading.Sema
     return measure_vmaf
 
 
-def run_search(provider_name, config, input_file, codec, target_vmaf, measure_vmaf, tolerance, max_steps):
+def run_one_search(provider_name, config, input_file, codec, target_vmaf, measure_vmaf, tolerance, max_steps, event_log):
+    input_size = input_file.stat().st_size
+
+    event_log.log("search_start",
+                  provider=provider_name, clip=input_file.stem, codec=codec,
+                  target_vmaf=target_vmaf, input_size_bytes=input_size)
+
     provider = get_provider(provider_name, config)
     result, vmaf, history = provider.encode_to_target_vmaf(
         input_file=input_file,
@@ -59,23 +77,38 @@ def run_search(provider_name, config, input_file, codec, target_vmaf, measure_vm
         tolerance=tolerance,
         max_steps=max_steps,
     )
-    return provider_name, input_file.name, result, vmaf, history
 
+    converged = vmaf >= target_vmaf
+    output_file = ""
+    vmaf_json_path = ""
+    file_size = 0
+    bitrate = 0
 
-def print_result(provider_name, video_name, result, vmaf, history):
-    print(f"\n{'=' * 60}")
-    print(f"{provider_name.upper()} — {video_name}")
-    print(f"{'=' * 60}")
-    print(f"Best quality: {history[-1]['quality']}")
-    print(f"Best VMAF: {vmaf:.2f}")
-    print(f"Encodes: {len(history)}")
-    for h in history:
-        print(f"  quality={h['quality']}  vmaf={h['vmaf']:.2f}  {h['encoding_name']}")
-    if result.renditions:
+    if result and result.renditions:
         r = result.renditions[0]
-        print(f"Output: {r.local_file}")
-        print(f"Size: {r.total_size_bytes / (1024*1024):.1f} MB")
-        print(f"Bitrate: {r.bitrate_bps / 1000:.0f} kbps")
+        output_file = str(r.local_file)
+        vmaf_json_path = str(r.local_file.parent / f"{r.local_file.stem}_vmaf.json")
+        file_size = r.total_size_bytes
+        bitrate = round(r.bitrate_bps / 1000, 1)
+
+    for i, h in enumerate(history):
+        event_log.log("search_probe",
+                      provider=provider_name, clip=input_file.stem, codec=codec,
+                      target_vmaf=target_vmaf, quality_setting=h["quality"],
+                      vmaf_harmonic_mean=round(h["vmaf"], 2),
+                      encoding_name=h["encoding_name"], step=i + 1)
+
+    event_log.log("search_complete",
+                  provider=provider_name, clip=input_file.stem, codec=codec,
+                  target_vmaf=target_vmaf, converged=converged,
+                  quality_setting=history[-1]["quality"] if history else None,
+                  vmaf_harmonic_mean=round(vmaf, 2),
+                  output_file=output_file, vmaf_json=vmaf_json_path,
+                  file_size_bytes=file_size, bitrate_kbps=bitrate,
+                  input_size_bytes=input_size, steps=len(history))
+
+    status = "CONVERGED" if converged else "NOT CONVERGED"
+    print(f"  {provider_name} — {input_file.name}: {status} VMAF {vmaf:.2f} | {bitrate} kbps | {file_size/(1024*1024):.1f} MB | {len(history)} steps")
 
 
 def resolve_videos(args, config):
@@ -122,36 +155,47 @@ def main():
     config = load_config(args.config)
     videos = resolve_videos(args, config)
 
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    log_path = Path("data/results") / f"run_{timestamp}.jsonl"
+    event_log = EventLog(log_path)
+
     semaphore = threading.Semaphore(args.vmaf_workers)
     measure_vmaf = make_measure_vmaf(vmaf_threads=args.vmaf_threads, semaphore=semaphore)
 
     tasks = [(p, v) for p in args.provider for v in videos]
 
+    event_log.log("run_start",
+                  providers=args.provider, codec=args.codec,
+                  videos=[v.name for v in videos], target_vmaf=args.vmaf,
+                  tolerance=args.tolerance, max_steps=args.max_steps,
+                  vmaf_threads=args.vmaf_threads, vmaf_workers=args.vmaf_workers)
+
     print(f"Providers:    {', '.join(args.provider)}")
     print(f"Codec:        {args.codec}")
     print(f"Videos:       {len(videos)}")
-    print(f"Tasks:        {len(tasks)} ({len(args.provider)} providers × {len(videos)} videos)")
+    print(f"Tasks:        {len(tasks)}")
     print(f"Target:       VMAF {args.vmaf}")
-    print(f"Tolerance:    +{args.tolerance}")
-    print(f"VMAF threads: {args.vmaf_threads or 'auto'}")
-    print(f"VMAF workers: {args.vmaf_workers}")
+    print(f"Log:          {log_path}")
     print()
 
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         futures = {
             pool.submit(
-                run_search, provider_name, config, video, args.codec,
-                args.vmaf, measure_vmaf, args.tolerance, args.max_steps,
-            ): (provider_name, video.name)
-            for provider_name, video in tasks
+                run_one_search, pname, config, video, args.codec,
+                args.vmaf, measure_vmaf, args.tolerance, args.max_steps, event_log,
+            ): (pname, video.name)
+            for pname, video in tasks
         }
         for future in as_completed(futures):
             pname, vname = futures[future]
             try:
-                name, video_name, result, vmaf, history = future.result()
-                print_result(name, video_name, result, vmaf, history)
+                future.result()
             except Exception as e:
-                print(f"\nFAILED: {pname} — {vname}: {e}")
+                event_log.log("search_error", provider=pname, clip=vname, error=str(e))
+                print(f"  FAILED: {pname} — {vname}: {e}")
+
+    event_log.log("run_complete", tasks=len(tasks))
+    print(f"\nLog: {log_path}")
 
 
 if __name__ == "__main__":
