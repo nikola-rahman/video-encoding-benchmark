@@ -26,6 +26,7 @@ from bitmovin_api_sdk.models import (
     AclPermission,
     StartEncodingRequest,
     Status,
+    ProfileH265,
 )
 
 from benchmark.providers.base import Provider, EncodingResult, Rendition
@@ -274,6 +275,7 @@ class BitmovinProvider(Provider):
             config = H265VideoConfiguration(
                 name=f"H.265 CRF {crf:.0f}",
                 crf=crf,
+                profile=ProfileH265.MAIN,
             )
             return api.encoding.configurations.video.h265.create(
                 h265_video_configuration=config
