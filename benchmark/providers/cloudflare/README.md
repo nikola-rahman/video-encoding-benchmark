@@ -1,65 +1,85 @@
 # Cloudflare Stream
 
-Video encoding and delivery platform integrated with Cloudflare's CDN. Like Mux, Cloudflare Stream auto-encodes uploaded videos — there are no granular codec or quality knobs.
-
 ## Status
 
-**Not yet implemented.** All methods raise `NotImplementedError`.
+**Not included in the benchmark.** See below for why.
 
-## Credentials
+## Why Cloudflare Stream is not compatible with this benchmark
+
+This benchmark compares single-file compression efficiency: smallest file at a given quality (VMAF). Cloudflare Stream's architecture makes this comparison impossible for the following reasons.
+
+### Downloads are H.264 only
+
+Cloudflare Stream's downloadable MP4 output is always H.264. There is no option to download H.265 or AV1 encoded files.
+
+- **Download docs**: https://developers.cloudflare.com/stream/viewing-videos/download-videos/ — no codec parameter
+- **FAQ**: https://developers.cloudflare.com/stream/faq/ — recommends "MP4 containers, AAC audio codec, H264 video codec" as input format; output codec is not configurable
+
+### AV1 is live-only beta
+
+Cloudflare announced AV1 support for live streaming in open beta, but this applies only to live stream playback — not to VOD uploads or downloadable files.
+
+- **AV1 blog post**: https://blog.cloudflare.com/av1-cloudflare-stream-beta/ — "Play live streams and recordings using the AV1 codec" — live only, not general VOD
+- **Community confirmation**: https://community.cloudflare.com/t/stream-h-265-support-not-working/790135 — H.265 not supported
+
+### No quality control
+
+Cloudflare Stream provides no quality, bitrate, CRF, or codec parameters. You upload a video and get whatever encoding Cloudflare decides. There is no way to target a specific VMAF or control the quality-vs-size tradeoff.
+
+- **LLM docs**: https://developers.cloudflare.com/stream/llms-full.txt — confirms automatic encoding with "H.264 codec with adaptive bitrate streaming, supporting resolutions from 360p to 1080p"
+
+### Verified by test
+
+We uploaded `ecom_watch.mp4` (1920x1080, 10s, H.264 CRF 18) to Cloudflare Stream and downloaded the result:
+
+```
+Input:  1920x1080, 10.2s, H.264, 9.1 MB
+Output: 1920x1080, 10.2s, H.264, 5.5 MB
+VMAF:   96.68 (vmaf_v0.6.1neg)
+```
+
+For comparison:
+- MediaConvert achieved VMAF 93.29 at 1.6 MB (H.265) — 3.4x smaller
+- Zencoder achieved VMAF 93.72 at 1.8 MB (H.265) — 3.1x smaller
+
+The difference is primarily codec generation (H.264 vs H.265), not encoding efficiency. This makes the comparison unfair — Cloudflare is handicapped by its codec, not its encoder.
+
+### Benchmark report implications
+
+Cloudflare Stream is a relevant finding for the report:
+
+- Like Mux, Cloudflare represents the "fully managed, zero-configuration" approach
+- Their encoding may use modern codecs internally for HLS delivery, but downloadable files are H.264 only
+- For single-file delivery (e-commerce, archives, UGC storage), customers get a codec generation behind the competition
+- No quality control means no way to optimize for storage efficiency
+
+## Credentials (for reference)
 
 | Variable | Description |
 |----------|-------------|
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
-| `CLOUDFLARE_API_TOKEN` | API token with Stream permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID from dashboard |
+| `CLOUDFLARE_API_TOKEN` | API token with Stream:Edit permission |
 
-## Config (benchmark.yaml)
+## API workflow tested
 
-```yaml
-providers:
-  cloudflare:
-    enabled: true
-    account_id: ${CLOUDFLARE_ACCOUNT_ID}
-    api_token: ${CLOUDFLARE_API_TOKEN}
+```python
+# Upload via URL
+POST /accounts/{id}/stream/copy
+{"url": "https://...", "meta": {"name": "test"}}
+
+# Check status
+GET /accounts/{id}/stream/{uid}
+
+# Enable downloads
+POST /accounts/{id}/stream/{uid}/downloads
+
+# Download MP4 (follows 302 redirect)
+GET https://customer-xxx.cloudflarestream.com/{uid}/downloads/default.mp4
 ```
-
-## SDK
-
-```bash
-uv add cloudflare
-```
-
-- **GitHub:** https://github.com/cloudflare/cloudflare-python
-- **PyPI:** https://pypi.org/project/cloudflare/
-
-Note: the older `python-cloudflare` package is archived. Use the official `cloudflare` package.
 
 ## Key documentation
 
-- **Stream docs (overview):** https://developers.cloudflare.com/stream/
-- **Getting started:** https://developers.cloudflare.com/stream/get-started/
-- **API reference:** https://developers.cloudflare.com/api/resources/stream/
-- **API reference (Python examples):** https://developers.cloudflare.com/api/python/resources/stream/
-- **Pricing:** https://developers.cloudflare.com/stream/pricing/
-
-### Upload & download
-
-- **Upload via URL:** https://developers.cloudflare.com/stream/uploading-videos/upload-via-link/
-- **Upload via URL (API endpoint):** https://developers.cloudflare.com/api/resources/stream/subresources/copy/methods/create/
-- **Download videos:** https://developers.cloudflare.com/stream/viewing-videos/download-videos/
-- **Downloads API:** https://developers.cloudflare.com/api/resources/stream/subresources/downloads/
-
-### Status & webhooks
-
-- **Webhooks:** https://developers.cloudflare.com/stream/manage-video-library/using-webhooks/
-
-### Codec & quality
-
-- **FAQ (codecs, input format):** https://developers.cloudflare.com/stream/faq/
-
-## Notes
-
-- Cloudflare Stream does **not** expose codec or quality controls. It automatically encodes to H.264 adaptive bitrate (360p-1080p). AV1 may be used for live playback but is not selectable for VOD output.
-- Downloads must be explicitly enabled per video via the downloads API before the MP4 can be fetched.
-- Pricing: $5 per 1,000 minutes stored, $1 per 1,000 minutes delivered.
-- The API uses a REST interface. Base URL: `https://api.cloudflare.com/client/v4/accounts/{account_id}/stream/`.
+- **Stream docs**: https://developers.cloudflare.com/stream/
+- **Download videos**: https://developers.cloudflare.com/stream/viewing-videos/download-videos/
+- **FAQ**: https://developers.cloudflare.com/stream/faq/
+- **Pricing**: https://developers.cloudflare.com/stream/pricing/ ($5/1K min stored, $1/1K min delivered)
