@@ -90,27 +90,14 @@ class Provider(ABC):
         """
         raise NotImplementedError(f"{self.name} does not implement prepare_input")
 
-    def quality_range(self, codec: str) -> tuple[float, float, float | None]:
-        """Return (min, max, step) of the provider's quality setting.
-
-        Higher values must mean higher quality (larger files).
-        If the native scale is inverted (e.g. CRF where lower = better),
-        the provider must flip it internally.
-
-        step: minimum meaningful increment. None means continuous (any float).
-              e.g. 1.0 for integer-only parameters like Zencoder quality 1-5.
-
-        Only needed if using the default binary search in encode_to_target_vmaf().
-        """
-        raise NotImplementedError(f"{self.name} does not define a quality range")
-
-    def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
+    def encode_at_quality(self, input_file: Path, codec: str, quality, **kwargs) -> EncodingResult:
         """Encode a single file at a specific quality level.
 
-        The quality value is on the scale returned by quality_range().
-        Returns an EncodingResult with renditions populated (file downloaded and ready for VMAF).
+        quality type depends on the search strategy:
+            - float for continuous search
+            - the exact value from the discrete list for discrete search
 
-        Only needed if using the default binary search in encode_to_target_vmaf().
+        Returns an EncodingResult with renditions populated (file downloaded and ready for VMAF).
         """
         raise NotImplementedError(f"{self.name} does not support encode_at_quality")
 
@@ -126,41 +113,38 @@ class Provider(ABC):
     ) -> tuple["EncodingResult", float, list[dict]]:
         """Encode a file to hit a target VMAF score.
 
-        Default implementation uses binary search over quality_range().
         Providers with native VMAF targeting (e.g. Vidaio) should override this.
-
-        Args:
-            input_file: Source video file.
-            codec: Codec to encode with.
-            target_vmaf: Desired VMAF score.
-            measure_vmaf: Callable(reference: Path, distorted: Path) -> float.
-            tolerance: Stop when VMAF is within this many points of target.
-            max_steps: Maximum number of encode iterations.
-
-        Returns:
-            (best_result, best_vmaf, history) where history is a list of
-            {quality, vmaf, encoding_name} dicts for every encode attempted.
+        Other providers should call one of:
+            _search_continuous() — for float parameters (CRF, QVBR, bitrate)
+            _search_discrete()  — for finite value sets (Zencoder quality 1-5)
         """
-        range_result = self.quality_range(codec)
-        lo, hi = range_result[0], range_result[1]
-        q_step = range_result[2] if len(range_result) > 2 else None
+        raise NotImplementedError(
+            f"{self.name} must implement encode_to_target_vmaf "
+            f"using _search_continuous() or _search_discrete()"
+        )
+
+    def _search_continuous(
+        self,
+        input_file: Path,
+        codec: str,
+        lo: float,
+        hi: float,
+        target_vmaf: float,
+        measure_vmaf: callable,
+        tolerance: float = 1.0,
+        max_steps: int = 8,
+        **kwargs,
+    ) -> tuple["EncodingResult", float, list[dict]]:
+        """Binary search over a continuous float range."""
         history = []
         best_result = None
         best_vmaf = 0
-        tried = set()
 
         for step in range(max_steps):
             quality = (lo + hi) / 2
-            if q_step is not None:
-                quality = round(quality / q_step) * q_step
-                if quality in tried:
-                    log.info(f"  No more values to try in range {lo:.2f}-{hi:.2f}")
-                    break
-            tried.add(quality)
             log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
 
             result = self.encode_at_quality(input_file, codec, quality, **kwargs)
-
             if not result.renditions:
                 raise RuntimeError(f"encode_at_quality returned no renditions at quality={quality}")
 
@@ -168,22 +152,15 @@ class Provider(ABC):
             vmaf = measure_vmaf(input_file, distorted)
             log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
 
-            history.append({
-                "quality": quality,
-                "vmaf": vmaf,
-                "encoding_name": result.encoding_name,
-            })
+            history.append({"quality": quality, "vmaf": vmaf, "encoding_name": result.encoding_name})
 
-            # Track best result that meets or exceeds target
             if vmaf >= target_vmaf:
-                overshoot = vmaf - target_vmaf
-                if best_result is None or overshoot < (best_vmaf - target_vmaf):
+                if best_result is None or (vmaf - target_vmaf) < (best_vmaf - target_vmaf):
                     best_result = result
                     best_vmaf = vmaf
 
-            # Converged: meets target and within tolerance above it
             if target_vmaf <= vmaf <= target_vmaf + tolerance:
-                log.info(f"  Converged: VMAF {vmaf:.2f} (target {target_vmaf}, tolerance +{tolerance})")
+                log.info(f"  Converged: VMAF {vmaf:.2f}")
                 break
 
             if vmaf < target_vmaf:
@@ -192,11 +169,64 @@ class Provider(ABC):
                 hi = quality
 
         if best_result is None:
-            # Never hit the target — return the highest VMAF we got
             best_entry = max(history, key=lambda h: h["vmaf"])
             best_vmaf = best_entry["vmaf"]
             log.warning(f"  Did not reach target VMAF {target_vmaf}. Best: {best_vmaf:.2f}")
-            # Re-encode at the best quality we found
+            best_result = self.encode_at_quality(input_file, codec, best_entry["quality"], **kwargs)
+
+        log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")
+        return best_result, best_vmaf, history
+
+    def _search_discrete(
+        self,
+        input_file: Path,
+        codec: str,
+        values: list,
+        target_vmaf: float,
+        measure_vmaf: callable,
+        tolerance: float = 1.0,
+        **kwargs,
+    ) -> tuple["EncodingResult", float, list[dict]]:
+        """Binary search over a sorted list of discrete values."""
+        history = []
+        best_result = None
+        best_vmaf = 0
+        lo_idx = 0
+        hi_idx = len(values) - 1
+
+        while lo_idx <= hi_idx:
+            mid_idx = (lo_idx + hi_idx) // 2
+            quality = values[mid_idx]
+            log.info(f"  Step {len(history) + 1}: quality={quality} (index {lo_idx}-{hi_idx})")
+
+            result = self.encode_at_quality(input_file, codec, quality, **kwargs)
+            if not result.renditions:
+                raise RuntimeError(f"encode_at_quality returned no renditions at quality={quality}")
+
+            distorted = result.renditions[0].local_file
+            vmaf = measure_vmaf(input_file, distorted)
+            log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
+
+            history.append({"quality": quality, "vmaf": vmaf, "encoding_name": result.encoding_name})
+
+            if vmaf >= target_vmaf:
+                if best_result is None or (vmaf - target_vmaf) < (best_vmaf - target_vmaf):
+                    best_result = result
+                    best_vmaf = vmaf
+
+            if target_vmaf <= vmaf <= target_vmaf + tolerance:
+                log.info(f"  Converged: VMAF {vmaf:.2f}")
+                break
+
+            if vmaf < target_vmaf:
+                lo_idx = mid_idx + 1
+            else:
+                hi_idx = mid_idx - 1
+
+        if best_result is None:
+            best_entry = max(history, key=lambda h: h["vmaf"])
+            best_vmaf = best_entry["vmaf"]
+            log.warning(f"  Did not reach target VMAF {target_vmaf}. Best: {best_vmaf:.2f}")
             best_result = self.encode_at_quality(input_file, codec, best_entry["quality"], **kwargs)
 
         log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")

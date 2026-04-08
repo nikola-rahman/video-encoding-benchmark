@@ -60,11 +60,9 @@ class BitmovinProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    def quality_range(self, codec: str) -> tuple[float, float, None]:
-        """CRF range inverted. Continuous."""
-        if codec == "av1":
-            return (0.0, 63.0, None)
-        return (0.0, 51.0, None)
+    def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
+        hi = 63.0 if codec == "av1" else 51.0
+        return self._search_continuous(input_file, codec, 0.0, hi, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Encode at a quality level. quality is on our scale (higher = better).

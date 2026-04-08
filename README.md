@@ -118,9 +118,8 @@ A provider must extend `benchmark.providers.base.Provider` and implement:
 | `check_status(encoding_id)` | If cloud | Poll job status. Return dict with `status`, `progress`. |
 | `download(result, output_dir)` | If cloud | Download encoded output. Return `EncodingResult` with `renditions` populated. |
 | `cleanup(result)` | Optional | Delete remote resources (S3 outputs, jobs). |
-| `encode_to_target_vmaf(input_file, codec, target_vmaf, measure_vmaf)` | Yes | Encode to hit a target VMAF. Default uses binary search over `quality_range`/`encode_at_quality`. Providers with native VMAF targeting (e.g. Vidaio) override this entirely. |
-| `quality_range(codec)` | If using default binary search | Return `(min, max)` of quality setting. Higher = better quality. |
-| `encode_at_quality(input_file, codec, quality)` | If using default binary search | Encode at a specific quality level. Return `EncodingResult` with local file ready for VMAF. |
+| `encode_to_target_vmaf(input_file, codec, target_vmaf, measure_vmaf)` | Yes | Encode to hit a target VMAF. Use `_search_continuous()` for float params (CRF, QVBR), `_search_discrete()` for finite sets (quality 1-5). Providers with native VMAF targeting (e.g. Vidaio) override entirely. |
+| `encode_at_quality(input_file, codec, quality)` | Yes | Encode at a specific quality level. Return `EncodingResult` with local file ready for VMAF. |
 
 Register the provider in `benchmark/providers/__init__.py`:
 

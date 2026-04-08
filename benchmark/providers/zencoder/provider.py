@@ -44,11 +44,10 @@ class ZencoderProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    def quality_range(self, codec: str) -> tuple[float, float, float]:
-        """Zencoder quality 1-5 (integer only). Higher = better quality."""
-        return (1.0, 5.0, 1.0)
+    def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
+        return self._search_discrete(input_file, codec, [1, 2, 3, 4, 5], target_vmaf, measure_vmaf, tolerance, **kwargs)
 
-    def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
+    def encode_at_quality(self, input_file: Path, codec: str, quality, **kwargs) -> EncodingResult:
         """Submit a job, wait for completion, download the output."""
         video_url = kwargs.get("video_url")
         if not video_url:
@@ -171,7 +170,7 @@ class ZencoderProvider(Provider):
                 "filename": f"{input_file.stem}.mp4",
                 "format": "mp4",
                 "video_codec": video_codec,
-                "quality": int(round(quality)),
+                "quality": quality,
                 "speed": 1,
             }],
         }
