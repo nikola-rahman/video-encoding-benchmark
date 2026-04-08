@@ -130,12 +130,11 @@ class ZencoderProvider(Provider):
             local_file = output_dir / result.encoding_name / filename
             local_file.parent.mkdir(parents=True, exist_ok=True)
 
-            file_size = output.get("file_size_in_bytes", 0)
-
-            if not local_file.exists() or local_file.stat().st_size != file_size:
-                log.info(f"  Downloading: {filename} ({file_size / (1024*1024):.1f} MB)")
+            if not local_file.exists():
+                log.info(f"  Downloading: {filename}")
                 s3.download_file(self.s3_output_bucket, s3_key, str(local_file))
 
+            file_size = local_file.stat().st_size
             bitrate_bps = get_actual_bitrate(str(local_file)) or 0
             renditions.append(Rendition(
                 bitrate_bps=bitrate_bps,
