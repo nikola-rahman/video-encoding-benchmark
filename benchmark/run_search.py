@@ -2,20 +2,21 @@
 """Run binary quality search across providers and videos.
 
 Usage:
-    # Single video, single provider
+    # Single provider, single video
     python -m benchmark.run_search --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93
 
-    # Single video, multiple providers in parallel
+    # Multiple providers, single video
     python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --video ecom_watch.mp4 --vmaf 93
 
-    # All videos in a vertical, multiple providers
+    # Multiple providers, full vertical
     python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93
 
-    # Limit VMAF threads
-    python -m benchmark.run_search --provider mediaconvert --codec h265 --vertical ecommerce --vmaf 93 --threads 8
+    # Control VMAF concurrency
+    python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93 --vmaf-workers 4 --vmaf-threads 8
 """
 
 import argparse
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -29,20 +30,26 @@ from benchmark.util.ffmpeg import run_vmaf, extract_vmaf_score
 load_dotenv()
 
 
-def make_measure_vmaf(threads: int | None = None):
+def make_measure_vmaf(vmaf_threads: int | None = None, semaphore: threading.Semaphore | None = None):
     def measure_vmaf(reference: Path, distorted: Path) -> float:
         output_json = distorted.parent / f"{distorted.stem}_vmaf.json"
-        vmaf_json = run_vmaf(
-            reference_mp4=str(reference),
-            distorted_mp4=str(distorted),
-            output_json=str(output_json),
-            threads=threads,
-        )
-        return extract_vmaf_score(vmaf_json)
+        if semaphore:
+            semaphore.acquire()
+        try:
+            vmaf_json = run_vmaf(
+                reference_mp4=str(reference),
+                distorted_mp4=str(distorted),
+                output_json=str(output_json),
+                threads=vmaf_threads,
+            )
+            return extract_vmaf_score(vmaf_json)
+        finally:
+            if semaphore:
+                semaphore.release()
     return measure_vmaf
 
 
-def run_provider(provider_name, config, input_file, codec, target_vmaf, measure_vmaf, tolerance, max_steps):
+def run_search(provider_name, config, input_file, codec, target_vmaf, measure_vmaf, tolerance, max_steps):
     provider = get_provider(provider_name, config)
     result, vmaf, history = provider.encode_to_target_vmaf(
         input_file=input_file,
@@ -72,7 +79,6 @@ def print_result(provider_name, video_name, result, vmaf, history):
 
 
 def resolve_videos(args, config):
-    """Resolve video files from --video or --vertical arguments."""
     inputs_dir = Path(config["inputs"]["dir"])
 
     if args.video:
@@ -108,41 +114,43 @@ def main():
     parser.add_argument("--vmaf", type=float, required=True, help="Target VMAF score")
     parser.add_argument("--tolerance", type=float, default=1.0, help="VMAF tolerance (default: 1.0)")
     parser.add_argument("--max-steps", type=int, default=8, help="Max search steps (default: 8)")
-    parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads")
+    parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads per measurement")
+    parser.add_argument("--vmaf-workers", type=int, default=8, help="Max concurrent VMAF measurements (default: 8)")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
     args = parser.parse_args()
 
     config = load_config(args.config)
     videos = resolve_videos(args, config)
-    measure_vmaf = make_measure_vmaf(threads=args.vmaf_threads)
 
-    print(f"Providers: {', '.join(args.provider)}")
-    print(f"Codec:     {args.codec}")
-    print(f"Videos:    {len(videos)}")
-    for v in videos:
-        print(f"  {v.name}")
-    print(f"Target:    VMAF {args.vmaf}")
-    print(f"Tolerance: +{args.tolerance}")
+    semaphore = threading.Semaphore(args.vmaf_workers)
+    measure_vmaf = make_measure_vmaf(vmaf_threads=args.vmaf_threads, semaphore=semaphore)
+
+    tasks = [(p, v) for p in args.provider for v in videos]
+
+    print(f"Providers:    {', '.join(args.provider)}")
+    print(f"Codec:        {args.codec}")
+    print(f"Videos:       {len(videos)}")
+    print(f"Tasks:        {len(tasks)} ({len(args.provider)} providers × {len(videos)} videos)")
+    print(f"Target:       VMAF {args.vmaf}")
+    print(f"Tolerance:    +{args.tolerance}")
     print(f"VMAF threads: {args.vmaf_threads or 'auto'}")
+    print(f"VMAF workers: {args.vmaf_workers}")
     print()
 
-    # Build all (provider, video) combinations
-    tasks = [(p, v) for v in videos for p in args.provider]
-
-    with ThreadPoolExecutor(max_workers=len(args.provider)) as pool:
+    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         futures = {
             pool.submit(
-                run_provider, provider_name, config, video, args.codec,
+                run_search, provider_name, config, video, args.codec,
                 args.vmaf, measure_vmaf, args.tolerance, args.max_steps,
             ): (provider_name, video.name)
             for provider_name, video in tasks
         }
         for future in as_completed(futures):
+            pname, vname = futures[future]
             try:
                 name, video_name, result, vmaf, history = future.result()
                 print_result(name, video_name, result, vmaf, history)
             except Exception as e:
-                pname, vname = futures[future]
                 print(f"\nFAILED: {pname} — {vname}: {e}")
 
 
