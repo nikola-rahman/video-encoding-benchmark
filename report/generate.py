@@ -24,11 +24,11 @@ DEFAULT_TEMPLATE = REPORT_DIR / "template.md.j2"
 def interpolate_metric_at_vmaf(points: list[dict], target_vmaf: float, metric: str) -> float | None:
     """Linearly interpolate a metric (e.g. bitrate_kbps, file_size_bytes) at a target VMAF.
 
-    Points must have 'vmaf_mean' and the requested metric.
+    Points must have 'vmaf_harmonic_mean' and the requested metric.
     Returns None if the target VMAF is outside the data range.
     """
-    valid = [(p["vmaf_mean"], p[metric]) for p in points
-             if p.get("vmaf_mean") is not None and p.get(metric) is not None]
+    valid = [(p["vmaf_harmonic_mean"], p[metric]) for p in points
+             if p.get("vmaf_harmonic_mean") is not None and p.get(metric) is not None]
     if len(valid) < 2:
         return None
 
@@ -52,13 +52,13 @@ def interpolate_metric_at_vmaf(points: list[dict], target_vmaf: float, metric: s
 def compute_bdrate(ref_points: list[dict], test_points: list[dict]) -> float | None:
     """Compute BD-Rate between two sets of RD points (simplified linear interpolation).
 
-    Each point needs 'vmaf_mean' and 'bitrate_kbps'.
+    Each point needs 'vmaf_harmonic_mean' and 'bitrate_kbps'.
     Returns percentage: positive means test uses more bitrate, negative means test saves bitrate.
     Returns None if insufficient overlap.
     """
     def to_pairs(pts):
-        pairs = [(p["vmaf_mean"], p["bitrate_kbps"]) for p in pts
-                 if p.get("vmaf_mean") is not None and p.get("bitrate_kbps") is not None]
+        pairs = [(p["vmaf_harmonic_mean"], p["bitrate_kbps"]) for p in pts
+                 if p.get("vmaf_harmonic_mean") is not None and p.get("bitrate_kbps") is not None]
         pairs.sort(key=lambda x: x[0])
         return pairs
 
@@ -173,7 +173,7 @@ def compute_stats(results: list[dict], clips: list[dict], config: dict) -> dict:
     vmaf_target = config.get("vmaf_transparent", 93)
     provider_sizes = defaultdict(list)
     for r in results:
-        if r.get("vmaf_mean") and r["vmaf_mean"] >= vmaf_target:
+        if r.get("vmaf_harmonic_mean") and r["vmaf_harmonic_mean"] >= vmaf_target:
             provider_sizes[r["provider"]].append(r["file_size_bytes"])
 
     if provider_sizes:
@@ -231,7 +231,7 @@ def build_codec_summary(results: list[dict], config: dict) -> dict:
         # Build per-provider data
         provider_entries = []
         for pid, rows in by_provider.items():
-            vmaf_vals = [r["vmaf_mean"] for r in rows if r.get("vmaf_mean")]
+            vmaf_vals = [r["vmaf_harmonic_mean"] for r in rows if r.get("vmaf_harmonic_mean")]
             cr_vals = [r["compression_ratio"] for r in rows if r.get("compression_ratio")]
             br_at_target = interpolate_metric_at_vmaf(rows, vmaf_target, "bitrate_kbps")
             fs_at_target = interpolate_metric_at_vmaf(rows, vmaf_target, "file_size_bytes")
@@ -283,7 +283,7 @@ def build_vertical_data(results: list[dict], clips: list[dict]) -> dict:
             "provider": r["provider"],
             "bitrate_kbps": r.get("bitrate_kbps", 0),
             "file_size_mb": (r.get("file_size_bytes", 0) or 0) / (1024 * 1024),
-            "vmaf_mean": r.get("vmaf_mean", 0),
+            "vmaf_harmonic_mean": r.get("vmaf_harmonic_mean", 0),
             "vmaf_min": r.get("vmaf_min", 0),
             "vmaf_p01": r.get("vmaf_p01", 0),
             "compression_ratio": r.get("compression_ratio", 0),
@@ -351,7 +351,7 @@ def build_storage_projection(results: list[dict], config: dict) -> list[dict]:
         if fs is None:
             # Use average file size of points above target as fallback
             above = [r["file_size_bytes"] for r in data
-                     if r.get("vmaf_mean") and r["vmaf_mean"] >= vmaf_target and r.get("file_size_bytes")]
+                     if r.get("vmaf_harmonic_mean") and r["vmaf_harmonic_mean"] >= vmaf_target and r.get("file_size_bytes")]
             fs = sum(above) / len(above) if above else None
 
         if fs is None:
@@ -399,7 +399,7 @@ def build_tco(results: list[dict], pricing_rows: list[dict], config: dict) -> li
         fs = interpolate_metric_at_vmaf(data, vmaf_target, "file_size_bytes")
         if fs is None:
             above = [r["file_size_bytes"] for r in data
-                     if r.get("vmaf_mean") and r["vmaf_mean"] >= vmaf_target and r.get("file_size_bytes")]
+                     if r.get("vmaf_harmonic_mean") and r["vmaf_harmonic_mean"] >= vmaf_target and r.get("file_size_bytes")]
             fs = sum(above) / len(above) if above else None
 
         if fs is None:
@@ -465,7 +465,7 @@ def build_cost_per_quality(results: list[dict], pricing_rows: list[dict], config
 
     rows = []
     for pid, data in by_provider.items():
-        vmaf_vals = [r["vmaf_mean"] for r in data if r.get("vmaf_mean")]
+        vmaf_vals = [r["vmaf_harmonic_mean"] for r in data if r.get("vmaf_harmonic_mean")]
         avg_vmaf = sum(vmaf_vals) / len(vmaf_vals) if vmaf_vals else 0
         cost_per_min = pricing_map.get(pid, 0)
         total_encoding_cost = total_minutes * cost_per_min
@@ -554,7 +554,7 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
     # Compute file size at VMAF target and avg VMAF for each provider
     provider_data = []
     for pid, data in by_provider.items():
-        vmaf_vals = [r["vmaf_mean"] for r in data if r.get("vmaf_mean")]
+        vmaf_vals = [r["vmaf_harmonic_mean"] for r in data if r.get("vmaf_harmonic_mean")]
         fs_at_target = interpolate_metric_at_vmaf(data, vmaf_target, "file_size_bytes")
         provider_data.append({
             "pid": pid,

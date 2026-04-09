@@ -121,7 +121,7 @@ def plot_rd_curves(data_by_provider, config, title, out_path, blackbox_ids=None)
         points = data_by_provider[pname]
         points.sort(key=lambda p: p["bitrate_kbps"])
         bitrates = [p["bitrate_kbps"] for p in points]
-        vmafs = [p["vmaf_mean"] for p in points]
+        vmafs = [p["vmaf_harmonic_mean"] for p in points]
         color = get_color(pname)
         marker = get_marker(pname)
 
@@ -399,8 +399,8 @@ def gen_vmaf_percentiles(results, config, figures_dir):
         if r.get("codec") not in benchmark_codecs:
             continue
         pname = provider_name(r["provider"], config)
-        if r.get("vmaf_mean"):
-            by_provider[pname]["mean"].append(r["vmaf_mean"])
+        if r.get("vmaf_harmonic_mean"):
+            by_provider[pname]["mean"].append(r["vmaf_harmonic_mean"])
         if r.get("vmaf_min"):
             by_provider[pname]["min"].append(r["vmaf_min"])
         if r.get("vmaf_p01"):
@@ -511,7 +511,7 @@ def gen_codec_comparison(results, config, figures_dir):
             if not points:
                 continue
             points.sort(key=lambda x: x["bitrate_kbps"])
-            ax.plot([r["bitrate_kbps"] for r in points], [r["vmaf_mean"] for r in points],
+            ax.plot([r["bitrate_kbps"] for r in points], [r["vmaf_harmonic_mean"] for r in points],
                     marker=get_marker(p["name"]), color=get_color(p["name"]),
                     linestyle=linestyle, linewidth=2, markersize=6,
                     label=f"{p['name']} ({codec_label})")
@@ -539,7 +539,7 @@ def gen_heatmap(results, config, figures_dir):
         labels_y.append(p["name"])
         for codec in codecs:
             points = [r for r in results if r["provider"] == p["id"] and r.get("codec") == codec]
-            vmafs = [r["vmaf_mean"] for r in points if r.get("vmaf_mean")]
+            vmafs = [r["vmaf_harmonic_mean"] for r in points if r.get("vmaf_harmonic_mean")]
             row.append(sum(vmafs) / len(vmafs) if vmafs else 0)
         data.append(row)
 
@@ -718,8 +718,8 @@ def gen_quality_floor(results, config, figures_dir):
     provider_vmafs = defaultdict(list)
     for pname, clips_data in by_provider_clip.items():
         for clip, rows in clips_data.items():
-            best = max(rows, key=lambda r: r.get("vmaf_mean", 0))
-            provider_vmafs[pname].append(best.get("vmaf_mean", 0))
+            best = max(rows, key=lambda r: r.get("vmaf_harmonic_mean", 0))
+            provider_vmafs[pname].append(best.get("vmaf_harmonic_mean", 0))
 
     labels = sorted(provider_vmafs.keys())
     n_clips_total = {pname: len(vmafs) for pname, vmafs in provider_vmafs.items()}
@@ -877,7 +877,7 @@ def gen_rate_control_accuracy(results, config, figures_dir):
         if qs not in quality_map:
             continue
         requested = quality_map[qs]
-        actual = r.get("vmaf_mean", 0)
+        actual = r.get("vmaf_harmonic_mean", 0)
         pname = provider_name(r["provider"], config)
         ax.scatter(requested, actual, color=get_color(pname), s=20, alpha=0.4)
 

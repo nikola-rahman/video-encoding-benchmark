@@ -15,7 +15,7 @@
 {%- macro results_table(rows) %}
 | Clip | Provider | Bitrate (kbps) | File Size (MB) | VMAF Mean | VMAF Min | VMAF P1 | Compression Ratio |
 |------|----------|---------------|----------------|-----------|----------|---------|-------------------|
-{% for r in rows | sort(attribute='provider') %}| {{ r.clip }} | {{ r.provider }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ "%.2f" | format(r.file_size_mb) }} | {{ "%.1f" | format(r.vmaf_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.compression_ratio) }} |
+{% for r in rows | sort(attribute='provider') %}| {{ r.clip }} | {{ r.provider }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ "%.2f" | format(r.file_size_mb) }} | {{ "%.1f" | format(r.vmaf_harmonic_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.compression_ratio) }} |
 {% endfor %}
 {%- endmacro %}
 
@@ -452,7 +452,7 @@ Complete data for every clip × provider × rendition combination.
 
 | Clip | Provider | Codec | Quality Setting | Bitrate (kbps) | File Size (bytes) | VMAF Mean | VMAF Min | VMAF P1 | VMAF P5 | Compression Ratio |
 |------|----------|-------|----------------|---------------|-------------------|-----------|----------|---------|---------|-------------------|
-{% for r in all_results %}| {{ r.clip }} | {{ r.provider }} | {{ r.codec }} | {{ r.quality_setting }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ r.file_size_bytes }} | {{ "%.1f" | format(r.vmaf_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.vmaf_p05) }} | {{ "%.1f" | format(r.compression_ratio) }} |
+{% for r in all_results %}| {{ r.clip }} | {{ r.provider }} | {{ r.codec }} | {{ r.quality_setting }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ r.file_size_bytes }} | {{ "%.1f" | format(r.vmaf_harmonic_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.vmaf_p05) }} | {{ "%.1f" | format(r.compression_ratio) }} |
 {% endfor %}
 
 ### Appendix C: Exact Encoding Configuration
