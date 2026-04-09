@@ -231,13 +231,21 @@ class Provider(ABC):
         history = []
         best_result = None
         best_vmaf = 0
-        prev_vmaf = None
+        use_binary = False
 
         for step in range(max_steps):
-            if len(history) < 2:
+            if len(history) < 2 or use_binary:
                 quality = (lo + hi) / 2
+                use_binary = False
             else:
                 quality = self._interpolate_quality(history, target_vmaf, lo, hi)
+
+            # If interpolation predicts a value we already tried, fall back to binary
+            if any(abs(quality - h["quality"]) < 1e-6 for h in history):
+                quality = (lo + hi) / 2
+                if any(abs(quality - h["quality"]) < 1e-6 for h in history):
+                    log.info(f"  Step {step + 1}/{max_steps}: search exhausted, stopping")
+                    break
 
             log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
 
@@ -250,10 +258,9 @@ class Provider(ABC):
                 log.info(f"  Converged: VMAF {vmaf:.2f}")
                 break
 
-            if prev_vmaf is not None and abs(vmaf - prev_vmaf) < 0.01:
-                log.info(f"  Stalled: same VMAF {vmaf:.2f}, stopping")
-                break
-            prev_vmaf = vmaf
+            # If same VMAF as previous step, interpolation is stuck — try binary next
+            if len(history) >= 2 and abs(history[-1]["vmaf"] - history[-2]["vmaf"]) < 0.01:
+                use_binary = True
 
             if vmaf < target_vmaf:
                 lo = quality
