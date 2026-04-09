@@ -131,7 +131,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Selection criteria:** Clips were chosen to cover a diverse range of spatial and temporal complexity across each vertical. Synthetic test sequences (ITU reference clips, Blender demos) were avoided in favor of content representative of real production workloads.
 
-**Input preparation:** All source files were validated and preprocessed to ensure consistent input quality: lossless H.264 (QP 0, no B-frames), no audio tracks, integer-second durations.
+**Input preparation:** All source files were re-encoded to H.264 CRF 18, no audio, MP4 container. Videos longer than 120 seconds were trimmed from the start.
 
 {{ figure("content_gallery", "Figure 3.1 — Test Content Gallery") }}
 *Representative frame from each test clip, organized by vertical.*
