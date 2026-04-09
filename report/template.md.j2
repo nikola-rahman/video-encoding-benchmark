@@ -77,7 +77,7 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 
 ### Headline findings table
 
-| Provider | Avg VMAF (matched bitrate) | BD-Rate vs. Best | File Size at VMAF {{ vmaf_transparent }} | Rank |
+| Provider | Avg VMAF | BD-Rate vs. Best | Avg File Size | Rank |
 |----------|---------------------------|-----------------|----------------------|------|
 {% for p in headline_ranking | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.filesize_at_target if p.filesize_at_target else "—" }} | {{ p.rank }} |
 {% endfor %}
