@@ -116,15 +116,17 @@ class Provider(ABC):
 
         Providers with native VMAF targeting (e.g. Vidaio) should override this.
         Other providers should call one of:
-            _search_continuous() — for float parameters (CRF, QVBR, bitrate)
-            _search_discrete()  — for finite value sets (Zencoder quality 1-5)
+            _search_binary_continuous()         — binary search over float range
+            _search_binary_discrete()           — binary search over finite value set
+            _search_interpolation_continuous()  — 2 binary steps then interpolation (float)
+            _search_interpolation_discrete()    — 2 binary steps then interpolation (finite set)
         """
         raise NotImplementedError(
             f"{self.name} must implement encode_to_target_vmaf "
-            f"using _search_continuous() or _search_discrete()"
+            f"using one of the _search_* methods"
         )
 
-    def _search_continuous(
+    def _search_binary_continuous(
         self,
         input_file: Path,
         codec: str,
@@ -178,7 +180,140 @@ class Provider(ABC):
         log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")
         return best_result, best_vmaf, history
 
-    def _search_discrete(
+    def _encode_and_measure(self, input_file, codec, quality, target_vmaf, measure_vmaf, **kwargs):
+        """Encode at a quality level, measure VMAF, return (result, vmaf)."""
+        result = self.encode_at_quality(input_file, codec, quality, **kwargs)
+        if not result.renditions:
+            raise RuntimeError(f"encode_at_quality returned no renditions at quality={quality}")
+        vmaf = measure_vmaf(input_file, result.renditions[0].local_file)
+        return result, vmaf
+
+    def _interpolate_quality(self, history, target_vmaf, lo, hi):
+        """Linear interpolation from two (quality, vmaf) samples, clamped to [lo, hi]."""
+        p1, p2 = history[-2], history[-1]
+        q1, v1 = p1["quality"], p1["vmaf"]
+        q2, v2 = p2["quality"], p2["vmaf"]
+        if abs(v2 - v1) < 0.01:
+            return (q1 + q2) / 2
+        quality = q1 + (target_vmaf - v1) * (q2 - q1) / (v2 - v1)
+        return max(lo, min(hi, quality))
+
+    def _update_best(self, result, vmaf, target_vmaf, best_result, best_vmaf):
+        """Update best result if this one is closer to target (and above it)."""
+        if vmaf >= target_vmaf:
+            if best_result is None or (vmaf - target_vmaf) < (best_vmaf - target_vmaf):
+                return result, vmaf
+        return best_result, best_vmaf
+
+    def _search_interpolation_continuous(
+        self,
+        input_file: Path,
+        codec: str,
+        lo: float,
+        hi: float,
+        target_vmaf: float,
+        measure_vmaf: callable,
+        tolerance: float = 1.0,
+        max_steps: int = 8,
+        **kwargs,
+    ) -> tuple["EncodingResult", float, list[dict]]:
+        """2 binary search steps to seed, then linear interpolation."""
+        history = []
+        best_result = None
+        best_vmaf = 0
+
+        for step in range(max_steps):
+            if len(history) < 2:
+                quality = (lo + hi) / 2
+            else:
+                quality = self._interpolate_quality(history, target_vmaf, lo, hi)
+
+            log.info(f"  Step {step + 1}/{max_steps}: quality={quality:.2f} (range {lo:.2f}-{hi:.2f})")
+
+            result, vmaf = self._encode_and_measure(input_file, codec, quality, target_vmaf, measure_vmaf, **kwargs)
+            log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
+            history.append({"quality": quality, "vmaf": vmaf, "encoding_name": result.encoding_name})
+            best_result, best_vmaf = self._update_best(result, vmaf, target_vmaf, best_result, best_vmaf)
+
+            if target_vmaf <= vmaf <= target_vmaf + tolerance:
+                log.info(f"  Converged: VMAF {vmaf:.2f}")
+                break
+
+            if vmaf < target_vmaf:
+                lo = quality
+            else:
+                hi = quality
+
+        if best_result is None:
+            best_entry = max(history, key=lambda h: h["vmaf"])
+            best_vmaf = best_entry["vmaf"]
+            log.warning(f"  Did not reach target VMAF {target_vmaf}. Best: {best_vmaf:.2f}")
+            best_result = self.encode_at_quality(input_file, codec, best_entry["quality"], **kwargs)
+
+        log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")
+        return best_result, best_vmaf, history
+
+    def _search_interpolation_discrete(
+        self,
+        input_file: Path,
+        codec: str,
+        values: list,
+        target_vmaf: float,
+        measure_vmaf: callable,
+        tolerance: float = 1.0,
+        **kwargs,
+    ) -> tuple["EncodingResult", float, list[dict]]:
+        """2 binary search steps to seed, then interpolation snapped to nearest discrete value."""
+        history = []
+        best_result = None
+        best_vmaf = 0
+        lo_idx = 0
+        hi_idx = len(values) - 1
+        tested = set()
+
+        max_steps = len(values)  # can't exceed the number of discrete values
+
+        for step in range(max_steps):
+            if len(history) < 2:
+                mid_idx = (lo_idx + hi_idx) // 2
+            else:
+                interpolated = self._interpolate_quality(history, target_vmaf, values[lo_idx], values[hi_idx])
+                mid_idx = min(range(lo_idx, hi_idx + 1), key=lambda i: abs(values[i] - interpolated))
+
+            quality = values[mid_idx]
+            if quality in tested:
+                break
+            tested.add(quality)
+
+            log.info(f"  Step {step + 1}: quality={quality} (index {lo_idx}-{hi_idx})")
+
+            result, vmaf = self._encode_and_measure(input_file, codec, quality, target_vmaf, measure_vmaf, **kwargs)
+            log.info(f"    VMAF: {vmaf:.2f} (target: {target_vmaf})")
+            history.append({"quality": quality, "vmaf": vmaf, "encoding_name": result.encoding_name})
+            best_result, best_vmaf = self._update_best(result, vmaf, target_vmaf, best_result, best_vmaf)
+
+            if target_vmaf <= vmaf <= target_vmaf + tolerance:
+                log.info(f"  Converged: VMAF {vmaf:.2f}")
+                break
+
+            if vmaf < target_vmaf:
+                lo_idx = mid_idx + 1
+            else:
+                hi_idx = mid_idx - 1
+
+            if lo_idx > hi_idx:
+                break
+
+        if best_result is None:
+            best_entry = max(history, key=lambda h: h["vmaf"])
+            best_vmaf = best_entry["vmaf"]
+            log.warning(f"  Did not reach target VMAF {target_vmaf}. Best: {best_vmaf:.2f}")
+            best_result = self.encode_at_quality(input_file, codec, best_entry["quality"], **kwargs)
+
+        log.info(f"  Best: VMAF={best_vmaf:.2f} ({len(history)} encodes)")
+        return best_result, best_vmaf, history
+
+    def _search_binary_discrete(
         self,
         input_file: Path,
         codec: str,

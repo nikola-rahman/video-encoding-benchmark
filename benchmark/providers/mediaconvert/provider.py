@@ -65,7 +65,7 @@ class MediaConvertProvider(Provider):
         return presign_url(s3, bucket, s3_key, 86400)
 
     def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
-        return self._search_continuous(input_file, codec, 1.0, 10.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
+        return self._search_interpolation_continuous(input_file, codec, 1.0, 10.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Submit a job, wait for completion, download the output."""

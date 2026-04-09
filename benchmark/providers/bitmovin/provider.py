@@ -63,8 +63,8 @@ class BitmovinProvider(Provider):
     def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
         if codec == "av1":
             input_bitrate = get_actual_bitrate(str(input_file))
-            return self._search_continuous(input_file, codec, 10_000, input_bitrate, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
-        return self._search_continuous(input_file, codec, 0.0, 51.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
+            return self._search_interpolation_continuous(input_file, codec, 10_000, input_bitrate, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
+        return self._search_interpolation_continuous(input_file, codec, 0.0, 51.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Encode at a quality level.
