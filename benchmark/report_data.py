@@ -116,9 +116,6 @@ def run(results_dir: Path, output_dir: Path):
 
     enriched = [enrich_result(r, clip_vertical) for r in results if r.get("converged")]
 
-    if output_dir.exists():
-        for f in output_dir.glob("*.csv"):
-            f.unlink()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     results_path = output_dir / "results.csv"
