@@ -36,27 +36,32 @@ def build_clip_vertical_map() -> dict[str, str]:
 def extract_vmaf_detail(vmaf_json_path: str) -> dict:
     """Extract min, p01, p05 from a VMAF JSON file."""
     path = Path(vmaf_json_path)
+    defaults = {
+        "vmaf_harmonic_mean": 0,
+        "vmaf_min": 0,
+        "vmaf_p01": 0,
+        "vmaf_p05": 0,
+    }
+
     if not path.exists():
-        return {}
+        return defaults
 
     with open(path) as f:
         data = json.load(f)
 
     pooled = data.get("pooled_metrics", {}).get("vmaf", {})
-    result = {
-        "vmaf_min": pooled.get("min"),
-        "vmaf_harmonic_mean": pooled.get("harmonic_mean"),
-    }
+    defaults["vmaf_min"] = pooled.get("min", 0)
+    defaults["vmaf_harmonic_mean"] = pooled.get("harmonic_mean", 0)
 
     frames = data.get("frames", [])
     if frames:
         scores = sorted(f["metrics"]["vmaf"] for f in frames if "vmaf" in f.get("metrics", {}))
         n = len(scores)
         if n > 0:
-            result["vmaf_p01"] = scores[max(0, int(n * 0.01))]
-            result["vmaf_p05"] = scores[max(0, int(n * 0.05))]
+            defaults["vmaf_p01"] = scores[max(0, int(n * 0.01))]
+            defaults["vmaf_p05"] = scores[max(0, int(n * 0.05))]
 
-    return result
+    return defaults
 
 
 def extract_results(events: list[dict]) -> list[dict]:
@@ -89,10 +94,10 @@ def enrich_result(result: dict, clip_vertical: dict) -> dict:
         "quality_setting": result["quality_setting"],
         "bitrate_kbps": result["bitrate_kbps"],
         "file_size_bytes": file_size,
-        "vmaf_harmonic_mean": vmaf_detail.get("vmaf_harmonic_mean", result.get("vmaf_harmonic_mean")),
-        "vmaf_min": vmaf_detail.get("vmaf_min", ""),
-        "vmaf_p01": vmaf_detail.get("vmaf_p01", ""),
-        "vmaf_p05": vmaf_detail.get("vmaf_p05", ""),
+        "vmaf_harmonic_mean": vmaf_detail["vmaf_harmonic_mean"] or result.get("vmaf_harmonic_mean", 0),
+        "vmaf_min": vmaf_detail["vmaf_min"],
+        "vmaf_p01": vmaf_detail["vmaf_p01"],
+        "vmaf_p05": vmaf_detail["vmaf_p05"],
         "compression_ratio": compression_ratio,
     }
 

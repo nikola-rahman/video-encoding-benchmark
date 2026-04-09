@@ -282,7 +282,7 @@ def build_vertical_data(results: list[dict], clips: list[dict]) -> dict:
             "clip": r["clip"],
             "provider": r["provider"],
             "bitrate_kbps": r.get("bitrate_kbps", 0),
-            "file_size_mb": (r.get("file_size_bytes", 0) or 0) / (1024 * 1024),
+            "file_size_mb": r.get("file_size_bytes", 0) / (1024 * 1024),
             "vmaf_harmonic_mean": r.get("vmaf_harmonic_mean", 0),
             "vmaf_min": r.get("vmaf_min", 0),
             "vmaf_p01": r.get("vmaf_p01", 0),
