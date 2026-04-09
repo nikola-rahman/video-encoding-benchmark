@@ -500,8 +500,7 @@ def gen_codec_comparison(results, config, figures_dir):
     if len(codecs) < 2:
         return
 
-    # Pick 3 non-blackbox providers
-    non_bb = [p for p in config["providers"] if not p.get("blackbox")][:3]
+    non_bb = [p for p in config["providers"] if not p.get("blackbox")]
     if not non_bb:
         return
 
