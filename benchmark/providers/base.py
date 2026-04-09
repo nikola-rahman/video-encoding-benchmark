@@ -56,6 +56,7 @@ class Provider(ABC):
 
     name: str
     capabilities: set[str]  # {"submit", "poll", "download", "local", "scan", "cleanup"}
+    supported_codecs: set[str]  # {"h265", "av1"}
 
     def __init__(self, provider_name: str, config: dict):
         self.name = provider_name

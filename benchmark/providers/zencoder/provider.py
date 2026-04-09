@@ -20,6 +20,7 @@ API_BASE = "https://app.zencoder.com/api/v2"
 
 class ZencoderProvider(Provider):
     capabilities = {"submit", "poll", "download", "cleanup"}
+    supported_codecs = {"h265"}
 
     def __init__(self, provider_name: str, config: dict):
         super().__init__(provider_name, config)

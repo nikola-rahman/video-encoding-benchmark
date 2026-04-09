@@ -34,6 +34,7 @@ def _max_bitrate_for_height(height: int) -> int:
 
 class MediaConvertProvider(Provider):
     capabilities = {"submit", "poll", "download", "cleanup"}
+    supported_codecs = {"h265", "av1"}
 
     def __init__(self, provider_name: str, config: dict):
         super().__init__(provider_name, config)

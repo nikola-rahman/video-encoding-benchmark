@@ -62,13 +62,19 @@ def make_measure_vmaf(vmaf_threads: int | None = None, semaphore: threading.Sema
 
 
 def run_one_search(provider_name, config, input_file, codec, target_vmaf, measure_vmaf, tolerance, max_steps, event_log):
+    provider = get_provider(provider_name, config)
+
+    if codec not in provider.supported_codecs:
+        print(f"  {provider_name} — skipping {codec} (supported: {', '.join(sorted(provider.supported_codecs))})")
+        event_log.log("search_skip", provider=provider_name, clip=input_file.stem,
+                      codec=codec, reason=f"{codec} not supported")
+        return
+
     input_size = input_file.stat().st_size
 
     event_log.log("search_start",
                   provider=provider_name, clip=input_file.stem, codec=codec,
                   target_vmaf=target_vmaf, input_size_bytes=input_size)
-
-    provider = get_provider(provider_name, config)
     result, vmaf, history = provider.encode_to_target_vmaf(
         input_file=input_file,
         codec=codec,
