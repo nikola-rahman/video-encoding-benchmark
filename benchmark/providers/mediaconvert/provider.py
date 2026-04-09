@@ -254,8 +254,6 @@ class MediaConvertProvider(Provider):
                     "RateControlMode": "QVBR",
                     "QvbrSettings": qvbr_settings,
                     "MaxBitrate": max_bitrate,
-                    "AdaptiveQuantization": "HIGH",
-                    "SpatialAdaptiveQuantization": "ENABLED",
                 },
             }
         else:
