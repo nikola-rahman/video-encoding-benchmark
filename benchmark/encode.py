@@ -5,8 +5,8 @@ Writes a JSONL audit log to data/results/run_<timestamp>.jsonl with every
 event: search starts, encodes, VMAF measurements, convergence.
 
 Usage:
-    python -m benchmark.run_search --provider mediaconvert zencoder bitmovin --codec h265 --vertical ecommerce --vmaf 93
-    python -m benchmark.run_search --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93 --vmaf-threads 8
+    python -m benchmark.encode --provider mediaconvert zencoder bitmovin --codec h265 av1 --vertical ecommerce --vmaf 85 89 93
+    python -m benchmark.encode --provider mediaconvert --codec h265 --video ecom_watch.mp4 --vmaf 93 --vmaf-threads 8
 """
 
 import argparse
@@ -140,11 +140,11 @@ def resolve_videos(args, config):
 def main():
     parser = argparse.ArgumentParser(description="Run binary quality search")
     parser.add_argument("--provider", required=True, nargs="+", help="Provider name(s)")
-    parser.add_argument("--codec", required=True, help="Codec (h265, av1)")
+    parser.add_argument("--codec", required=True, nargs="+", help="Codec(s) (h265, av1)")
     video_group = parser.add_mutually_exclusive_group(required=True)
     video_group.add_argument("--video", nargs="+", help="Video filename(s)")
     video_group.add_argument("--vertical", nargs="+", help="Vertical(s) from catalog")
-    parser.add_argument("--vmaf", type=float, required=True, help="Target VMAF score")
+    parser.add_argument("--vmaf", type=float, required=True, nargs="+", help="Target VMAF score(s)")
     parser.add_argument("--tolerance", type=float, default=1.0, help="VMAF tolerance (default: 1.0)")
     parser.add_argument("--max-steps", type=int, default=8, help="Max search steps (default: 8)")
     parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads per measurement")
@@ -162,29 +162,35 @@ def main():
     semaphore = threading.Semaphore(args.vmaf_workers)
     measure_vmaf = make_measure_vmaf(vmaf_threads=args.vmaf_threads, semaphore=semaphore)
 
-    tasks = [(p, v) for p in args.provider for v in videos]
+    tasks = [
+        (p, v, codec, vmaf_target)
+        for codec in args.codec
+        for vmaf_target in args.vmaf
+        for p in args.provider
+        for v in videos
+    ]
 
     event_log.log("run_start",
-                  providers=args.provider, codec=args.codec,
-                  videos=[v.name for v in videos], target_vmaf=args.vmaf,
+                  providers=args.provider, codecs=args.codec,
+                  videos=[v.name for v in videos], target_vmafs=args.vmaf,
                   tolerance=args.tolerance, max_steps=args.max_steps,
                   vmaf_threads=args.vmaf_threads, vmaf_workers=args.vmaf_workers)
 
     print(f"Providers:    {', '.join(args.provider)}")
-    print(f"Codec:        {args.codec}")
+    print(f"Codecs:       {', '.join(args.codec)}")
     print(f"Videos:       {len(videos)}")
+    print(f"VMAF targets: {', '.join(str(v) for v in args.vmaf)}")
     print(f"Tasks:        {len(tasks)}")
-    print(f"Target:       VMAF {args.vmaf}")
     print(f"Log:          {log_path}")
     print()
 
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         futures = {
             pool.submit(
-                run_one_search, pname, config, video, args.codec,
-                args.vmaf, measure_vmaf, args.tolerance, args.max_steps, event_log,
+                run_one_search, pname, config, video, codec,
+                vmaf_target, measure_vmaf, args.tolerance, args.max_steps, event_log,
             ): (pname, video.name)
-            for pname, video in tasks
+            for pname, video, codec, vmaf_target in tasks
         }
         for future in as_completed(futures):
             pname, vname = futures[future]
