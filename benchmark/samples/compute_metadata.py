@@ -51,8 +51,8 @@ def compute_si_ti(path: Path) -> tuple[float, float]:
 
     output = result.stderr + result.stdout
 
-    si_match = re.search(r"SI:\s*Average:\s*([\d.]+)", output)
-    ti_match = re.search(r"TI:\s*Average:\s*([\d.]+)", output)
+    si_match = re.search(r"Spatial Information:\nAverage:\s*([\d.]+)", output)
+    ti_match = re.search(r"Temporal Information:\nAverage:\s*([\d.]+)", output)
 
     si = float(si_match.group(1)) if si_match else 0.0
     ti = float(ti_match.group(1)) if ti_match else 0.0
