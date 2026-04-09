@@ -215,9 +215,12 @@ def gen_codec_rd(results, config, figures_dir):
             pname = provider_name(r["provider"], config)
             by_provider[pname].append(r)
 
+        out_path = figures_dir / f"aggregate_rd_{codec}.png"
         if by_provider:
             plot_rd_curves(by_provider, config, f"Rate-Distortion — {codec_label}",
-                           figures_dir / f"aggregate_rd_{codec}.png", blackbox_ids)
+                           out_path, blackbox_ids)
+        else:
+            plot_placeholder(f"Rate-Distortion — {codec_label} (no data)", out_path)
 
 
 def gen_vertical_rd(results, clips, config, figures_dir):
@@ -909,6 +912,9 @@ def generate_all(config_path=DEFAULT_CONFIG):
     config = load_config(config_path)
     report_dir = config_path.parent
     figures_dir = report_dir / config.get("figures_dir", "figures")
+    if figures_dir.exists():
+        for f in figures_dir.glob("*.png"):
+            f.unlink()
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     results = load_csv(report_dir / config["data"]["results"])
