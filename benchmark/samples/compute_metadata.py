@@ -12,6 +12,7 @@ import csv
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from benchmark.samples.catalog import load_catalog
@@ -60,7 +61,7 @@ def compute_si_ti(path: Path) -> tuple[float, float]:
     return si, ti
 
 
-def run(input_dir: Path, output_file: Path):
+def run(input_dir: Path, output_file: Path, workers: int = 8):
     catalog = load_catalog()
     clip_vertical = {s["id"]: s["vertical"] for s in catalog}
 
@@ -73,27 +74,33 @@ def run(input_dir: Path, output_file: Path):
 
     columns = ["clip", "vertical", "resolution", "duration_s", "si", "ti", "input_size_bytes"]
 
+    def process_video(video):
+        clip = video.stem
+        info = probe_video(video)
+        si, ti = compute_si_ti(video)
+        print(f"  {clip}: SI={si:.1f} TI={ti:.1f}")
+        return {
+            "clip": clip,
+            "vertical": clip_vertical.get(clip, ""),
+            "resolution": f"{info['width']}x{info['height']}",
+            "duration_s": round(info["duration"], 1),
+            "si": round(si, 1),
+            "ti": round(ti, 1),
+            "input_size_bytes": info["size"],
+        }
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(process_video, v): v for v in videos}
+        rows = []
+        for future in as_completed(futures):
+            rows.append(future.result())
+
+    rows.sort(key=lambda r: r["clip"])
+
     with open(output_file, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns)
         writer.writeheader()
-
-        for video in videos:
-            clip = video.stem
-            print(f"  {clip}...", end=" ", flush=True)
-
-            info = probe_video(video)
-            si, ti = compute_si_ti(video)
-
-            writer.writerow({
-                "clip": clip,
-                "vertical": clip_vertical.get(clip, ""),
-                "resolution": f"{info['width']}x{info['height']}",
-                "duration_s": round(info["duration"], 1),
-                "si": round(si, 1),
-                "ti": round(ti, 1),
-                "input_size_bytes": info["size"],
-            })
-            print(f"SI={si:.1f} TI={ti:.1f}")
+        writer.writerows(rows)
 
     print(f"\n{len(videos)} clips -> {output_file}")
 
@@ -102,5 +109,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compute clip metadata (SI, TI)")
     parser.add_argument("input_dir", type=Path, help="Directory with prepared videos")
     parser.add_argument("output_file", type=Path, help="Output CSV path")
+    parser.add_argument("--workers", type=int, default=8, help="Parallel workers (default: 8)")
     args = parser.parse_args()
-    run(args.input_dir, args.output_file)
+    run(args.input_dir, args.output_file, workers=args.workers)
