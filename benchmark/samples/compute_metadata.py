@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Compute clip metadata (SI, TI, resolution, duration) for prepared videos.
 
+Uses ffmpeg's siti filter for SI/TI computation.
+
 Usage:
-    python -m benchmark.samples.compute_metadata data/samples/prepared data/results/clip_metadata.csv
+    python -m benchmark.samples.compute_metadata data/samples/prepared report/data/clip_metadata.csv
 """
 
 import argparse
 import csv
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -19,7 +22,7 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
 def probe_video(path: Path) -> dict:
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height,codec_name,duration,r_frame_rate,nb_frames",
+         "-show_entries", "stream=width,height",
          "-show_entries", "format=duration,size",
          "-of", "json", str(path)],
         capture_output=True, text=True,
@@ -32,81 +35,29 @@ def probe_video(path: Path) -> dict:
     return {
         "width": s.get("width", 0),
         "height": s.get("height", 0),
-        "duration": float(fmt.get("duration", 0) or s.get("duration", 0)),
+        "duration": float(fmt.get("duration", 0)),
         "size": int(fmt.get("size", 0)),
     }
 
 
 def compute_si_ti(path: Path) -> tuple[float, float]:
-    """Compute Spatial Information (SI) and Temporal Information (TI)."""
-    # SI: std of Sobel-filtered frames
-    si_cmd = [
-        "ffmpeg", "-v", "error", "-i", str(path),
-        "-vf", "sobel,metadata=print:file=-",
-        "-f", "null", "-",
-    ]
-    # Use simpler approach: compute SI/TI via signalstats filter
-    cmd = [
-        "ffmpeg", "-v", "error", "-i", str(path),
-        "-vf", "signalstats=stat=tout+vrep+brng,metadata=print:file=-",
-        "-f", "null", "-",
-    ]
-    # Simplest reliable approach: compute SI as avg of per-frame Sobel std,
-    # TI as avg of per-frame difference std
-
-    # SI: average spatial complexity via edge detection
-    si_result = subprocess.run(
+    """Compute average SI and TI using ffmpeg's siti filter."""
+    result = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(path),
-         "-vf", "sobel,mestimate,metadata=print:file=/dev/stdout",
+         "-vf", "siti=print_summary=1",
          "-f", "null", "-"],
         capture_output=True, text=True,
     )
 
-    # Fallback: use simpler approach with two-pass
-    # Pass 1: compute SI (Sobel standard deviation per frame)
-    si_val = _compute_si(path)
-    ti_val = _compute_ti(path)
+    output = result.stderr + result.stdout
 
-    return si_val, ti_val
+    si_match = re.search(r"SI:\s*Average:\s*([\d.]+)", output)
+    ti_match = re.search(r"TI:\s*Average:\s*([\d.]+)", output)
 
+    si = float(si_match.group(1)) if si_match else 0.0
+    ti = float(ti_match.group(1)) if ti_match else 0.0
 
-def _compute_si(path: Path) -> float:
-    """Compute Spatial Information as mean of per-frame Sobel energy."""
-    result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path),
-         "-vf", "sobel,crop=iw:ih:0:0,entropy",
-         "-f", "null", "-"],
-        capture_output=True, text=True,
-    )
-    # Simpler: just use the raw pixel variance approach
-    result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path),
-         "-vf", "sobel",
-         "-f", "rawvideo", "-pix_fmt", "gray", "-"],
-        capture_output=True,
-    )
-    if not result.stdout:
-        return 0.0
-
-    import numpy as np
-    pixels = np.frombuffer(result.stdout, dtype=np.uint8)
-    return float(np.std(pixels))
-
-
-def _compute_ti(path: Path) -> float:
-    """Compute Temporal Information as mean of inter-frame differences."""
-    result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path),
-         "-vf", "tblend=all_mode=difference",
-         "-f", "rawvideo", "-pix_fmt", "gray", "-"],
-        capture_output=True,
-    )
-    if not result.stdout:
-        return 0.0
-
-    import numpy as np
-    pixels = np.frombuffer(result.stdout, dtype=np.uint8)
-    return float(np.std(pixels))
+    return si, ti
 
 
 def run(input_dir: Path, output_file: Path):
