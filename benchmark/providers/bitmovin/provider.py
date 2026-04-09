@@ -21,7 +21,6 @@ from bitmovin_api_sdk.models import (
     Mp4Muxing,
     MuxingStream,
     CloudRegion,
-    PresetConfiguration,
     AclEntry,
     AclPermission,
     StartEncodingRequest,
@@ -61,24 +60,24 @@ class BitmovinProvider(Provider):
         return presign_url(s3, bucket, s3_key, 86400)
 
     def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
-        hi = 63.0 if codec == "av1" else 51.0
-        return self._search_continuous(input_file, codec, 0.0, hi, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
+        if codec == "av1":
+            input_bitrate = get_actual_bitrate(str(input_file))
+            return self._search_continuous(input_file, codec, 10_000, input_bitrate, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
+        return self._search_continuous(input_file, codec, 0.0, 51.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
-        """Encode at a quality level. quality is on our scale (higher = better).
-        Converts to CRF (lower = better) internally."""
-        if codec == "av1":
-            crf = 63.0 - quality  # quality 63 → CRF 0, quality 0 → CRF 63
-        else:
-            crf = 51.0 - quality  # quality 51 → CRF 0, quality 0 → CRF 51
+        """Encode at a quality level.
 
+        For H.265: quality is on our inverted CRF scale (higher = better).
+        For AV1: quality is target bitrate in bps (higher = better quality).
+        """
         video_url = kwargs.get("video_url")
         if not video_url:
             s3_prefix = self.config["storage"]["s3"]["prefix"]
             s3_key = f"{s3_prefix}/{input_file.name}"
             video_url = self.prepare_input(input_file, s3_key)
 
-        result = self._submit_job(video_url, codec, input_file, crf)
+        result = self._submit_job(video_url, codec, input_file, quality)
         job_id = result.encoding_id
 
         # Poll until complete
@@ -192,8 +191,8 @@ class BitmovinProvider(Provider):
 
     # ── Private helpers ──────────────────────────────────────
 
-    def _submit_job(self, video_url: str, codec: str, input_file: Path, crf: float) -> EncodingResult:
-        """Submit a CRF-based encoding job."""
+    def _submit_job(self, video_url: str, codec: str, input_file: Path, quality: float) -> EncodingResult:
+        """Submit an encoding job. quality semantics depend on codec."""
         api = self._get_api()
 
         parsed = urlparse(video_url)
@@ -216,8 +215,7 @@ class BitmovinProvider(Provider):
             encoding=Encoding(name=encoding_name, cloud_region=CloudRegion.AUTO)
         )
 
-        # Create codec config with CRF and VOD_HIGH_QUALITY
-        codec_config = self._create_codec_config(api, codec, crf)
+        codec_config = self._create_codec_config(api, codec, quality)
 
         # Create video stream
         stream = api.encoding.encodings.streams.create(
@@ -267,29 +265,35 @@ class BitmovinProvider(Provider):
             encoding_id=encoding.id,
         )
 
-    def _create_codec_config(self, api, codec: str, crf: float):
-        """Create codec configuration with CRF and VOD_HIGH_QUALITY preset."""
+    def _create_codec_config(self, api, codec: str, quality: float):
         if codec == "h265":
-            config = H265VideoConfiguration(
-                name=f"H.265 CRF {crf:.0f}",
-                crf=crf,
-                profile=ProfileH265.MAIN,
-                encoding_mode=EncodingMode.SINGLE_PASS,
-            )
-            return api.encoding.configurations.video.h265.create(
-                h265_video_configuration=config
-            )
+            return self._create_h265_config(api, quality)
         elif codec == "av1":
-            config = Av1VideoConfiguration(
-                name=f"AV1 CRF {crf:.0f}",
-                preset_configuration=Av1PresetConfiguration.VOD_HIGH_QUALITY,
-                sample_aspect_ratio_numerator=1,
-                sample_aspect_ratio_denominator=1,
-            )
-            # AV1 CRF is set via rate field
-            # TODO: verify how to set CRF for AV1 in Bitmovin SDK
-            return api.encoding.configurations.video.av1.create(
-                av1_video_configuration=config
-            )
-        else:
-            raise ValueError(f"Unsupported codec: {codec}")
+            return self._create_av1_config(api, quality)
+        raise ValueError(f"Unsupported codec: {codec}")
+
+    def _create_h265_config(self, api, quality: float):
+        """H.265: CRF single-pass. quality is on inverted scale (higher = better)."""
+        crf = 51.0 - quality
+        config = H265VideoConfiguration(
+            name=f"H.265 CRF {crf:.0f}",
+            crf=crf,
+            profile=ProfileH265.MAIN,
+            encoding_mode=EncodingMode.SINGLE_PASS,
+        )
+        return api.encoding.configurations.video.h265.create(
+            h265_video_configuration=config
+        )
+
+    def _create_av1_config(self, api, quality: float):
+        """AV1: bitrate-targeted 3-pass. quality is target bitrate in bps."""
+        bitrate = int(quality)
+        config = Av1VideoConfiguration(
+            name=f"AV1 {bitrate / 1000:.0f}kbps",
+            bitrate=bitrate,
+            preset_configuration=Av1PresetConfiguration.VOD_QUALITY,
+            encoding_mode=EncodingMode.THREE_PASS,
+        )
+        return api.encoding.configurations.video.av1.create(
+            av1_video_configuration=config
+        )
