@@ -189,12 +189,22 @@ class Provider(ABC):
         return result, vmaf
 
     def _interpolate_quality(self, history, target_vmaf, lo, hi):
-        """Linear interpolation from two (quality, vmaf) samples, clamped to [lo, hi]."""
-        p1, p2 = history[-2], history[-1]
-        q1, v1 = p1["quality"], p1["vmaf"]
-        q2, v2 = p2["quality"], p2["vmaf"]
+        """Linear interpolation between the two points that bracket the target VMAF."""
+        below = [h for h in history if h["vmaf"] < target_vmaf]
+        above = [h for h in history if h["vmaf"] >= target_vmaf]
+
+        if not below or not above:
+            return (lo + hi) / 2
+
+        p_lo = max(below, key=lambda h: h["vmaf"])
+        p_hi = min(above, key=lambda h: h["vmaf"])
+
+        q1, v1 = p_lo["quality"], p_lo["vmaf"]
+        q2, v2 = p_hi["quality"], p_hi["vmaf"]
+
         if abs(v2 - v1) < 0.01:
             return (q1 + q2) / 2
+
         quality = q1 + (target_vmaf - v1) * (q2 - q1) / (v2 - v1)
         return max(lo, min(hi, quality))
 
