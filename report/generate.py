@@ -758,6 +758,8 @@ def build_context(config: dict, report_dir: Path) -> dict:
     resolution = proj.get("resolution", "1080p")
     tco_scenario = f"{num_videos:,} videos × {duration_s}s × {resolution}"
 
+    config["date"] = datetime.now().strftime("%Y-%m-%d")
+
     return {
         "config": config,
         "vmaf_transparent": config.get("vmaf_transparent", 93),
