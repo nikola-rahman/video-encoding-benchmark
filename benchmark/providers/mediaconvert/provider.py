@@ -64,11 +64,8 @@ class MediaConvertProvider(Provider):
         bucket = get_bucket()
         return presign_url(s3, bucket, s3_key, 86400)
 
-    # QVBR levels: 1.0 to 10.0 in thirds (MediaConvert rounds to nearest third)
-    QVBR_VALUES = [round(i / 3, 2) for i in range(3, 31)]  # 1.0, 1.33, 1.67, ..., 10.0
-
     def encode_to_target_vmaf(self, input_file, codec, target_vmaf, measure_vmaf, tolerance=1.0, max_steps=8, **kwargs):
-        return self._search_interpolation_discrete(input_file, codec, self.QVBR_VALUES, target_vmaf, measure_vmaf, tolerance, **kwargs)
+        return self._search_interpolation_continuous(input_file, codec, 1.0, 10.0, target_vmaf, measure_vmaf, tolerance, max_steps, **kwargs)
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
         """Submit a job, wait for completion, download the output."""

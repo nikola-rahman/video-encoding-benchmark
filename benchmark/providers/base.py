@@ -231,6 +231,7 @@ class Provider(ABC):
         history = []
         best_result = None
         best_vmaf = 0
+        prev_vmaf = None
 
         for step in range(max_steps):
             if len(history) < 2:
@@ -248,6 +249,11 @@ class Provider(ABC):
             if target_vmaf <= vmaf <= target_vmaf + tolerance:
                 log.info(f"  Converged: VMAF {vmaf:.2f}")
                 break
+
+            if prev_vmaf is not None and abs(vmaf - prev_vmaf) < 0.01:
+                log.info(f"  Stalled: same VMAF {vmaf:.2f}, stopping")
+                break
+            prev_vmaf = vmaf
 
             if vmaf < target_vmaf:
                 lo = quality
