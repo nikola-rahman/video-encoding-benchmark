@@ -551,17 +551,17 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
     for r in results:
         by_provider[r["provider"]].append(r)
 
-    # Compute file size at VMAF target and avg VMAF for each provider
+    # Use average file size and VMAF from converged results (already at target)
     provider_data = []
     for pid, data in by_provider.items():
         vmaf_vals = [r["vmaf_harmonic_mean"] for r in data if r.get("vmaf_harmonic_mean")]
-        fs_at_target = interpolate_metric_at_vmaf(data, vmaf_target, "file_size_bytes")
+        fs_vals = [r["file_size_bytes"] for r in data if r.get("file_size_bytes")]
         provider_data.append({
             "pid": pid,
             "name": provider_names.get(pid, pid),
             "vmaf_avg": sum(vmaf_vals) / len(vmaf_vals) if vmaf_vals else None,
             "points": data,
-            "filesize_at_target_bytes": fs_at_target,
+            "filesize_at_target_bytes": sum(fs_vals) / len(fs_vals) if fs_vals else None,
         })
 
     # Find the best provider (smallest file at target VMAF) as BD-Rate reference
