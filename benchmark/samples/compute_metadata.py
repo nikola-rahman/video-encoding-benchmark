@@ -43,7 +43,7 @@ def probe_video(path: Path) -> dict:
 def compute_si_ti(path: Path) -> tuple[float, float]:
     """Compute average SI and TI using ffmpeg's siti filter."""
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(path),
+        ["ffmpeg", "-v", "info", "-i", str(path),
          "-vf", "siti=print_summary=1",
          "-f", "null", "-"],
         capture_output=True, text=True,
