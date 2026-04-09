@@ -16,6 +16,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from benchmark.samples.catalog import load_catalog
 
@@ -25,7 +26,7 @@ VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
 def probe_video(path: Path) -> dict:
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height",
+         "-show_entries", "stream=width,height,nb_frames",
          "-show_entries", "format=duration,size",
          "-of", "json", str(path)],
         capture_output=True, text=True,
@@ -38,12 +39,13 @@ def probe_video(path: Path) -> dict:
     return {
         "width": s.get("width", 0),
         "height": s.get("height", 0),
+        "nb_frames": int(s.get("nb_frames", 0)),
         "duration": float(fmt.get("duration", 0)),
         "size": int(fmt.get("size", 0)),
     }
 
 
-def compute_si_ti(path: Path) -> tuple[float, float]:
+def compute_si_ti(path: Path, total_frames: int, position: int) -> tuple[float, float]:
     """Compute average SI and TI using OpenCV."""
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
@@ -53,6 +55,8 @@ def compute_si_ti(path: Path) -> tuple[float, float]:
     ti_values = []
     prev_frame = None
 
+    bar = tqdm(total=total_frames, desc=path.stem, unit="f", position=position, leave=False)
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -60,19 +64,19 @@ def compute_si_ti(path: Path) -> tuple[float, float]:
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # SI: Sobel magnitude std
         sx = cv2.Sobel(gray, cv2.CV_32F, 1, 0)
         sy = cv2.Sobel(gray, cv2.CV_32F, 0, 1)
         mag = cv2.magnitude(sx, sy)
         si_values.append(float(cv2.meanStdDev(mag)[1][0][0]))
 
-        # TI: frame difference std
         if prev_frame is not None:
             diff = cv2.subtract(gray.astype(np.int16), prev_frame.astype(np.int16))
             ti_values.append(float(cv2.meanStdDev(diff)[1][0][0]))
 
         prev_frame = gray
+        bar.update(1)
 
+    bar.close()
     cap.release()
 
     si = sum(si_values) / len(si_values) if si_values else 0.0
@@ -93,11 +97,16 @@ def run(input_dir: Path, output_file: Path, workers: int = 8):
 
     columns = ["clip", "vertical", "resolution", "duration_s", "si", "ti", "input_size_bytes"]
 
-    def process_video(video):
+    # Probe all videos first for frame counts
+    video_info = {}
+    for v in videos:
+        video_info[v] = probe_video(v)
+
+    def process_video(video, position):
         clip = video.stem
-        info = probe_video(video)
-        si, ti = compute_si_ti(video)
-        print(f"  {clip}: SI={si:.1f} TI={ti:.1f}")
+        info = video_info[video]
+        si, ti = compute_si_ti(video, info["nb_frames"], position)
+        tqdm.write(f"  {clip}: SI={si:.1f} TI={ti:.1f}")
         return {
             "clip": clip,
             "vertical": clip_vertical.get(clip, ""),
@@ -109,7 +118,7 @@ def run(input_dir: Path, output_file: Path, workers: int = 8):
         }
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(process_video, v): v for v in videos}
+        futures = {pool.submit(process_video, v, i): v for i, v in enumerate(videos)}
         rows = []
         for future in as_completed(futures):
             rows.append(future.result())
