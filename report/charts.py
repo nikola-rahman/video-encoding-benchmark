@@ -189,16 +189,9 @@ def plot_placeholder(title, out_path):
 
 
 def gen_aggregate_rd(results, config, figures_dir):
-    """Figure 1.1 — Average bitrate by VMAF target (grouped bar chart)."""
-    benchmark_codecs = set(config.get("codecs", []))
+    """Figure 1.1 — Average bitrate by VMAF target, one subplot per codec."""
+    benchmark_codecs = sorted(config.get("codecs", []))
     codec_labels = {"av1": "AV1", "h265": "H.265"}
-
-    # Darker variants for AV1
-    AV1_COLORS = {
-        "AWS MediaConvert": "#D55E00",
-        "Bitmovin": "#0072B2",
-        "Brightcove Zencoder": "#006846",
-    }
 
     # Group by (provider_name, codec, target_vmaf) → list of bitrates
     by_key = defaultdict(list)
@@ -210,30 +203,35 @@ def gen_aggregate_rd(results, config, figures_dir):
 
     avg = {k: np.mean(v) for k, v in by_key.items()}
     targets = sorted(set(t for _, _, t in avg.keys()))
-    combos = sorted(set((p, c) for p, c, t in avg.keys()))
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    x = np.arange(len(targets))
-    n = len(combos)
-    width = 0.8 / n
+    fig, axes = plt.subplots(1, len(benchmark_codecs), figsize=(6 * len(benchmark_codecs), 6), sharey=True)
+    if len(benchmark_codecs) == 1:
+        axes = [axes]
 
-    for i, (pname, codec) in enumerate(combos):
-        label = f"{pname} ({codec_labels.get(codec, codec)})"
-        color = AV1_COLORS.get(pname, "#888") if codec == "av1" else get_color(pname)
-        vals = [avg.get((pname, codec, t), 0) for t in targets]
-        offset = (i - n / 2 + 0.5) * width
-        bars = ax.bar(x + offset, vals, width, label=label, color=color)
-        for bar, val in zip(bars, vals):
-            if val > 0:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 10,
-                        f"{val:.0f}", ha="center", va="bottom", fontsize=8)
+    for ax, codec in zip(axes, benchmark_codecs):
+        providers = sorted(set(p for p, c, t in avg.keys() if c == codec))
+        x = np.arange(len(targets))
+        n = len(providers)
+        width = 0.8 / max(n, 1)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"VMAF {int(t)}" for t in targets])
-    ax.set_ylabel("Average Bitrate (kbps)")
-    ax.set_title("Average Bitrate by VMAF Target (lower is better)")
-    ax.legend(fontsize=9)
-    ax.grid(axis="y", alpha=0.3)
+        for i, pname in enumerate(providers):
+            color = get_color(pname)
+            vals = [avg.get((pname, codec, t), 0) for t in targets]
+            offset = (i - n / 2 + 0.5) * width
+            bars = ax.bar(x + offset, vals, width, label=pname, color=color)
+            for bar, val in zip(bars, vals):
+                if val > 0:
+                    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 10,
+                            f"{val:.0f}", ha="center", va="bottom", fontsize=8)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels([f"VMAF {int(t)}" for t in targets])
+        ax.set_title(codec_labels.get(codec, codec))
+        ax.legend(fontsize=8)
+        ax.grid(axis="y", alpha=0.3)
+
+    axes[0].set_ylabel("Average Bitrate (kbps)")
+    fig.suptitle("Average Bitrate by VMAF Target (lower is better)", fontsize=13)
     fig.tight_layout()
     fig.savefig(figures_dir / "aggregate_rd.png")
     plt.close(fig)
