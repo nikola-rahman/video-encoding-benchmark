@@ -760,6 +760,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "config": config,
         "vmaf_transparent": config.get("vmaf_transparent", 93),
         "vmaf_indistinguishable": config.get("vmaf_indistinguishable", 95),
+        "vmaf_targets": config.get("vmaf_targets", [85, 89, 93]),
         "storage_cost_per_gb_month": config.get("storage_cost_per_gb_month", 0.023),
         "projection": config.get("projection", {}),
         "stats": stats,

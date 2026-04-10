@@ -202,6 +202,7 @@ def gen_aggregate_rd(results, config, figures_dir):
         by_key[(pname, r["codec"])].append(r)
 
     fig, ax = plt.subplots(figsize=(10, 6))
+    all_targets = set()
 
     for (pname, codec) in sorted(by_key.keys()):
         rows = by_key[(pname, codec)]
@@ -210,6 +211,7 @@ def gen_aggregate_rd(results, config, figures_dir):
         for r in rows:
             target = 85 if r["vmaf_harmonic_mean"] < 87 else (89 if r["vmaf_harmonic_mean"] < 91 else 93)
             vmaf_groups[target].append(r)
+        all_targets.update(vmaf_groups.keys())
 
         avg_bitrates = []
         avg_vmafs = []
@@ -229,7 +231,10 @@ def gen_aggregate_rd(results, config, figures_dir):
     ax.set_ylabel("Average VMAF (harmonic mean)")
     ax.set_title("Aggregate Rate-Distortion (averaged across clips)")
     ax.legend(fontsize=9)
-    add_vmaf_lines(ax)
+    for target in sorted(all_targets):
+        ax.axhline(y=target, color="gray", linestyle="--", alpha=0.5, linewidth=1)
+        ax.text(ax.get_xlim()[1], target + 0.3, f"VMAF {target}", ha="right",
+                va="bottom", fontsize=8, color="gray")
     ax.set_ylim(bottom=max(75, ax.get_ylim()[0] - 2), top=min(100, ax.get_ylim()[1] + 1))
     fig.tight_layout()
     fig.savefig(figures_dir / "aggregate_rd.png")
