@@ -1003,7 +1003,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
 
     # Conceptual diagrams — always placeholders (hand-designed)
     for name, title in [
-        ("gop_diagram", "GOP Structure Comparison"),
         ("content_gallery", "Test Content Gallery"),
     ]:
         plot_placeholder(title, figures_dir / f"{name}.png")

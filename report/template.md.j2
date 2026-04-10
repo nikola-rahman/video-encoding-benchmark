@@ -108,8 +108,6 @@ All major cloud encoding benchmarks — Ozer (2022), MSU (2020, 2022) — evalua
 Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-based switching. Each GOP starts with an I-frame — a full-frame image that costs 10-50x more bits than a P-frame. For single-file delivery where segment switching is not needed, these additional I-frames consume bits without a corresponding benefit to the viewer.
 
 
-{{ figure("gop_diagram", "Figure 2.2 — Why GOPs Matter") }}
-*Streaming-optimized GOP structure (short, many I-frames) vs. quality-optimized (longer, fewer I-frames). I-frame overhead directly reduces the bit budget available for quality.*
 
 ---
 
