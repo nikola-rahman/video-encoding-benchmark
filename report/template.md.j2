@@ -34,7 +34,7 @@
 
 # Video Encoding for Storage and Quality: A Multi-Provider Benchmark
 
-**Comparing compression efficiency across cloud encoding providers for archival, e-commerce, UGC, and education workloads**
+**Comparing compression efficiency across cloud encoding providers for {{ verticals | map(attribute='name') | list | join(', ') | lower }} workloads**
 
 | | |
 |------|------|
@@ -141,7 +141,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Fairness statement:** Each provider was configured to produce the best possible quality for a given file size. For providers with quality controls, multiple encoding passes were performed at different quality levels to map the full rate-distortion curve. For providers without quality controls, the single output represents the provider's best-effort encoding.
 
-**Configurable providers:** CRF/QVBR values were selected to produce data points spanning the range from low bitrate (~200 kbps) to high bitrate (~5,000+ kbps), ensuring sufficient density to fit accurate RD curves.
+**Configurable providers:** For each clip, a binary search (with interpolation) over each provider's quality parameter finds the setting that hits target VMAF scores ({{ vmaf_targets | join(', ') }}). This produces matched-quality data points for direct comparison.
 
 **Black-box providers:** Mux and Cloudflare Stream produce one output per input with no quality controls. Their single operating point is plotted against other providers' RD curves. See [Section 3.4](#34-handling-black-box-providers) for details.
 
@@ -155,7 +155,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
   - VMAF 1st percentile, VMAF 5th percentile
   - Per-frame VMAF scores (for consistency analysis)
 - **Compression ratio:** Input file size ÷ output file size
-- **BD-Rate:** Bjontegaard Delta Rate computed between each provider's RD curve and the best-performing provider as reference, using piecewise cubic interpolation over the overlapping bitrate range
+- **BD-Rate:** Bjontegaard Delta Rate computed between each provider's RD curve and the best-performing provider as reference, using PCHIP interpolation over the overlapping VMAF range
 
 **Why percentiles matter:** A file with VMAF mean 95 but a 1st-percentile of 72 has severe transient quality drops that a viewer will notice. Mean VMAF alone is insufficient for quality assessment.
 
@@ -182,7 +182,7 @@ Mux and Cloudflare Stream do not expose quality controls. This creates an asymme
 #### {{ sec_base }}.1 Aggregate {{ codec_label }} Rate-Distortion
 
 {{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 — Aggregate RD Curves, " ~ codec_label) }}
-*All providers, {{ codec_label }} encoding, averaged across all test clips. Configurable providers shown as curves; black-box providers as single points. Horizontal lines at VMAF {{ vmaf_transparent }} and {{ vmaf_indistinguishable }}.*
+*All providers, {{ codec_label }} encoding, averaged across all test clips. Configurable providers shown as curves; black-box providers as single points. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}).*
 
 {{ provider_summary_table(codec, codec_summary[codec]) }}
 
@@ -397,7 +397,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 1. **Sample size.** {{ stats.n_clips }} clips is representative but not exhaustive. Results may vary on content types not tested (e.g., sports, gaming, medical imaging).
 2. **Provider evolution.** Cloud encoders are updated frequently. These results reflect provider capabilities as of {{ config.date }}.
 3. **Pricing not fully compared.** Encoding, storage, and delivery costs vary by volume, contract, and region. Storage projections use public list prices and do not account for negotiated enterprise rates.
-4. **VMAF limitations on UGC.** Research (BVI-UGC 2024) shows VMAF correlates less well with subjective quality on noisy, low-quality UGC content (SROCC < 0.6). Results on UGC clips should be interpreted with this caveat.
+4. **VMAF limitations on UGC.** VMAF may correlate less well with subjective quality on noisy, low-quality UGC content. Results on UGC clips should be interpreted with this caveat.
 5. **Black-box provider snapshots.** Mux and Cloudflare may change their encoding pipelines at any time. The single data points in this report are snapshots, not permanent characterizations.
 6. **No subjective evaluation.** This benchmark uses objective metrics only. A subjective study (MOS scores) would provide additional validation.
 7. **Encoding time variability.** Cloud encoding speed depends on server load and is not deterministic.
@@ -459,9 +459,9 @@ Exact API calls and SDK invocations used for each provider.
 
 **Definition:** Bjontegaard Delta Rate (BD-Rate) measures the average percentage difference in bitrate between two rate-distortion curves at equivalent quality levels (Bjontegaard, 2001).
 
-**Curve fitting:** Piecewise cubic Hermite interpolation (PCHIP) over the overlapping bitrate range of both curves.
+**Curve fitting:** Piecewise cubic Hermite interpolation (PCHIP) of log-bitrate as a function of VMAF.
 
-**Integration range:** Limited to the bitrate range where both providers have data points, to avoid extrapolation artifacts.
+**Integration range:** Limited to the VMAF range where both providers have data points, to avoid extrapolation artifacts.
 
 **Edge cases:** Black-box providers with a single data point are excluded from BD-Rate computation.
 
@@ -485,7 +485,6 @@ Exact API calls and SDK invocations used for each provider.
 | **P-frame** | Predicted frame. References previous frames to achieve higher compression. |
 | **B-frame** | Bidirectionally predicted frame. References both previous and future frames for maximum compression. |
 | **RD curve** | Rate-Distortion curve. Plots quality (VMAF) against bitrate. A curve closer to the top-left is more efficient. |
-| **Per-Title** | Content-adaptive encoding that analyzes source complexity to optimize the bitrate ladder per video. |
 | **SI** | Spatial Information. Measures the spatial complexity (detail) of a video frame. Higher SI = more detail. |
 | **TI** | Temporal Information. Measures the temporal complexity (motion) between frames. Higher TI = more motion. |
 

@@ -50,17 +50,29 @@ def interpolate_metric_at_vmaf(points: list[dict], target_vmaf: float, metric: s
 
 
 def compute_bdrate(ref_points: list[dict], test_points: list[dict]) -> float | None:
-    """Compute BD-Rate between two sets of RD points (simplified linear interpolation).
+    """Compute BD-Rate between two sets of RD points using PCHIP interpolation.
+
+    Follows the Bjontegaard (2001) method: integrate log-bitrate over the
+    overlapping VMAF range using piecewise cubic Hermite interpolation.
 
     Each point needs 'vmaf_harmonic_mean' and 'bitrate_kbps'.
     Returns percentage: positive means test uses more bitrate, negative means test saves bitrate.
     Returns None if insufficient overlap.
     """
+    from scipy.interpolate import PchipInterpolator
+
     def to_pairs(pts):
         pairs = [(p["vmaf_harmonic_mean"], p["bitrate_kbps"]) for p in pts
                  if p.get("vmaf_harmonic_mean") is not None and p.get("bitrate_kbps") is not None]
         pairs.sort(key=lambda x: x[0])
-        return pairs
+        # PCHIP requires strictly increasing x — deduplicate by averaging bitrates at same VMAF
+        deduped = []
+        for vmaf, br in pairs:
+            if deduped and abs(vmaf - deduped[-1][0]) < 0.01:
+                deduped[-1] = (deduped[-1][0], (deduped[-1][1] + br) / 2)
+            else:
+                deduped.append((vmaf, br))
+        return deduped
 
     ref = to_pairs(ref_points)
     test = to_pairs(test_points)
@@ -68,39 +80,29 @@ def compute_bdrate(ref_points: list[dict], test_points: list[dict]) -> float | N
     if len(ref) < 2 or len(test) < 2:
         return None
 
-    # Find overlapping VMAF range
-    vmaf_min = max(ref[0][0], test[0][0])
-    vmaf_max = min(ref[-1][0], test[-1][0])
-
-    if vmaf_max <= vmaf_min:
-        return None
-
-    # Sample at N points in the overlap range
-    n_samples = 20
-    step = (vmaf_max - vmaf_min) / n_samples
-
-    def interp_bitrate(pairs, vmaf):
-        for i in range(len(pairs) - 1):
-            if pairs[i][0] <= vmaf <= pairs[i + 1][0]:
-                t = (vmaf - pairs[i][0]) / (pairs[i + 1][0] - pairs[i][0]) if pairs[i + 1][0] != pairs[i][0] else 0
-                return pairs[i][1] + t * (pairs[i + 1][1] - pairs[i][1])
-        return None
-
     import math
-    log_diff_sum = 0
-    count = 0
-    for i in range(n_samples + 1):
-        vmaf = vmaf_min + i * step
-        ref_br = interp_bitrate(ref, vmaf)
-        test_br = interp_bitrate(test, vmaf)
-        if ref_br and test_br and ref_br > 0 and test_br > 0:
-            log_diff_sum += math.log(test_br) - math.log(ref_br)
-            count += 1
+    import numpy as np
 
-    if count == 0:
+    ref_vmaf = np.array([p[0] for p in ref])
+    ref_logbr = np.array([math.log(p[1]) for p in ref])
+    test_vmaf = np.array([p[0] for p in test])
+    test_logbr = np.array([math.log(p[1]) for p in test])
+
+    # Overlapping VMAF range
+    vmaf_lo = max(ref_vmaf[0], test_vmaf[0])
+    vmaf_hi = min(ref_vmaf[-1], test_vmaf[-1])
+
+    if vmaf_hi <= vmaf_lo:
         return None
 
-    avg_log_diff = log_diff_sum / count
+    ref_interp = PchipInterpolator(ref_vmaf, ref_logbr)
+    test_interp = PchipInterpolator(test_vmaf, test_logbr)
+
+    # Integrate log-bitrate difference over the overlapping range
+    ref_integral = float(ref_interp.integrate(vmaf_lo, vmaf_hi))
+    test_integral = float(test_interp.integrate(vmaf_lo, vmaf_hi))
+
+    avg_log_diff = (test_integral - ref_integral) / (vmaf_hi - vmaf_lo)
     bdrate_pct = (math.exp(avg_log_diff) - 1) * 100
     return round(bdrate_pct, 1)
 

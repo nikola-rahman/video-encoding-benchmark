@@ -102,14 +102,14 @@ def is_blackbox(pid, config):
 # ── Chart helpers ────────────────────────────────────────────────
 
 
-def add_vmaf_lines(ax):
-    """Add horizontal VMAF threshold lines."""
-    ax.axhline(y=VMAF_TRANSPARENT, color="gray", linestyle="--", alpha=0.5, linewidth=1)
-    ax.axhline(y=VMAF_INDISTINGUISHABLE, color="gray", linestyle=":", alpha=0.4, linewidth=1)
-    ax.text(ax.get_xlim()[1], VMAF_TRANSPARENT + 0.3, f"VMAF {VMAF_TRANSPARENT}", ha="right",
-            va="bottom", fontsize=8, color="gray")
-    ax.text(ax.get_xlim()[1], VMAF_INDISTINGUISHABLE + 0.3, f"VMAF {VMAF_INDISTINGUISHABLE}", ha="right",
-            va="bottom", fontsize=8, color="gray")
+def add_vmaf_lines(ax, targets=None):
+    """Add horizontal VMAF target lines."""
+    if targets is None:
+        targets = [85, 89, 93]
+    for t in targets:
+        ax.axhline(y=t, color="gray", linestyle="--", alpha=0.5, linewidth=1)
+        ax.text(ax.get_xlim()[1], t + 0.3, f"VMAF {t}", ha="right",
+                va="bottom", fontsize=8, color="gray")
 
 
 def plot_rd_curves(data_by_provider, config, title, out_path, blackbox_ids=None):
