@@ -85,9 +85,6 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 {{ figure("aggregate_rd", "Figure 1.1 — Aggregate Rate-Distortion Summary") }}
 *Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better — smaller bars mean better compression efficiency.*
 
-{{ figure("storage_savings_bar", "Figure 1.2 — Storage Savings at Matched Quality") }}
-*Average file size required to achieve VMAF ≥ {{ vmaf_transparent }}, by provider. Percentage labels show savings relative to the largest file.*
-
 ---
 
 ## 2. Why This Benchmark Exists
@@ -217,11 +214,6 @@ Mux and Cloudflare Stream do not expose quality controls. This creates an asymme
 ## 5. Storage Efficiency Analysis
 
 This section translates rate-distortion data into the metrics that storage-cost buyers care about.
-
-### File size at matched quality
-
-{{ figure("filesize_at_vmaf_target", "Figure 5.1 — File Size at VMAF " ~ vmaf_transparent ~ ", by Provider") }}
-*Average file size required to achieve VMAF ≥ {{ vmaf_transparent }} across all clips, using AV1. Percentage labels show savings relative to the largest provider.*
 
 ### Storage cost projection
 

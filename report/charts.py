@@ -967,7 +967,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_codec_rd(results, config, figures_dir)
     gen_vertical_rd(results, clips, config, figures_dir)
     gen_per_clip_rd(results, config, figures_dir)
-    gen_storage_savings_bar(results, config, figures_dir)
     gen_bdrate_bars(results, config, figures_dir)
     gen_si_ti_scatter(clips, config, figures_dir)
     gen_compression_ratio_boxplot(results, config, figures_dir)
