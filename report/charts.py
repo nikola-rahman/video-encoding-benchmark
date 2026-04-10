@@ -375,22 +375,20 @@ def gen_bdrate_bars(results, config, figures_dir):
 
 def gen_si_ti_scatter(clips, config, figures_dir):
     """Figure 3.2 — SI vs TI scatter."""
-    vertical_colors = {
-        "ecommerce": "#E69F00",
-        "ugc": "#56B4E9",
-        "archive": "#009E73",
-        "education": "#D55E00",
-    }
+    palette = ["#E69F00", "#56B4E9", "#009E73", "#D55E00", "#0072B2", "#CC79A7"]
+    vertical_ids = [v["id"] for v in config.get("verticals", [])]
+    vertical_colors = {vid: palette[i % len(palette)] for i, vid in enumerate(vertical_ids)}
     fig, ax = plt.subplots(figsize=(8, 6))
     for c in clips:
         color = vertical_colors.get(c["vertical"], "#888")
         ax.scatter(c["si"], c["ti"], color=color, s=100, edgecolors="black", linewidths=0.5, zorder=5)
-        ax.annotate(c["clip"].split("_")[0], (c["si"], c["ti"]),
-                    textcoords="offset points", xytext=(6, 6), fontsize=8)
+        ax.annotate(c["clip"], (c["si"], c["ti"]),
+                    textcoords="offset points", xytext=(6, 6), fontsize=7)
 
     # Legend
+    vertical_names = {v["id"]: v["name"] for v in config.get("verticals", [])}
     for vid, color in vertical_colors.items():
-        ax.scatter([], [], color=color, s=80, label=vid.title(), edgecolors="black", linewidths=0.5)
+        ax.scatter([], [], color=color, s=80, label=vertical_names.get(vid, vid), edgecolors="black", linewidths=0.5)
     ax.legend()
     ax.set_xlabel("Spatial Information (SI)")
     ax.set_ylabel("Temporal Information (TI)")
