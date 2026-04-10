@@ -91,6 +91,7 @@ def enrich_result(result: dict, clip_vertical: dict) -> dict:
         "vertical": vertical,
         "provider": result["provider"],
         "codec": result["codec"],
+        "target_vmaf": result["target_vmaf"],
         "quality_setting": result["quality_setting"],
         "bitrate_kbps": result["bitrate_kbps"],
         "file_size_bytes": file_size,
@@ -103,7 +104,7 @@ def enrich_result(result: dict, clip_vertical: dict) -> dict:
 
 
 RESULTS_COLUMNS = [
-    "clip", "vertical", "provider", "codec", "quality_setting",
+    "clip", "vertical", "provider", "codec", "target_vmaf", "quality_setting",
     "bitrate_kbps", "file_size_bytes",
     "vmaf_harmonic_mean", "vmaf_min", "vmaf_p01", "vmaf_p05",
     "compression_ratio",

@@ -83,7 +83,7 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 {% endfor %}
 
 {{ figure("aggregate_rd", "Figure 1.1 — Aggregate Rate-Distortion Summary") }}
-*All providers, averaged across {{ stats.n_clips }} clips. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}). Solid lines: H.265, dashed lines: AV1.*
+*Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better — smaller bars mean better compression efficiency.*
 
 {{ figure("storage_savings_bar", "Figure 1.2 — Storage Savings at Matched Quality") }}
 *Average file size required to achieve VMAF ≥ {{ vmaf_transparent }}, by provider. Percentage labels show savings relative to the largest file.*
