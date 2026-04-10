@@ -378,12 +378,16 @@ def gen_si_ti_scatter(clips, config, figures_dir):
     palette = ["#E69F00", "#56B4E9", "#009E73", "#D55E00", "#0072B2", "#CC79A7"]
     vertical_ids = [v["id"] for v in config.get("verticals", [])]
     vertical_colors = {vid: palette[i % len(palette)] for i, vid in enumerate(vertical_ids)}
+    from adjustText import adjust_text
+
     fig, ax = plt.subplots(figsize=(8, 6))
+    texts = []
     for c in clips:
         color = vertical_colors.get(c["vertical"], "#888")
         ax.scatter(c["si"], c["ti"], color=color, s=100, edgecolors="black", linewidths=0.5, zorder=5)
-        ax.annotate(c["clip"], (c["si"], c["ti"]),
-                    textcoords="offset points", xytext=(6, 6), fontsize=7)
+        texts.append(ax.text(c["si"], c["ti"], c["clip"], fontsize=7))
+
+    adjust_text(texts, arrowprops=dict(arrowstyle="-", color="gray", alpha=0.5))
 
     # Legend
     vertical_names = {v["id"]: v["name"] for v in config.get("verticals", [])}
