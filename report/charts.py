@@ -939,6 +939,62 @@ def gen_rate_control_accuracy(results, config, figures_dir):
     print(f"  rate_control_accuracy.png")
 
 
+def gen_content_gallery(config, figures_dir):
+    """Content gallery — one thumbnail per vertical from report/assets/thumbs."""
+    import matplotlib.image as mpimg
+
+    thumbs_dir = REPORT_DIR / "assets" / "thumbs"
+
+    verticals = config.get("verticals", [])
+    # Count clips per vertical from catalog
+    from benchmark.samples.catalog import load_catalog
+    catalog = load_catalog()
+    clip_counts = defaultdict(int)
+    for s in catalog:
+        clip_counts[s["vertical"]] += 1
+
+    import math
+    n = len(verticals)
+    cols = math.ceil(math.sqrt(n))
+    rows = math.ceil(n / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows))
+    axes_flat = np.array(axes).flatten() if n > 1 else [axes]
+
+    for i, v in enumerate(verticals):
+        ax = axes_flat[i]
+        vid = v["id"]
+        name = v["name"]
+        count = clip_counts.get(vid, 0)
+        thumb_name = v.get("thumb")
+        thumb = thumbs_dir / thumb_name if thumb_name else None
+
+        if thumb and thumb.exists():
+            img = mpimg.imread(str(thumb))
+            ax.imshow(img)
+        else:
+            ax.set_facecolor("#f0f0f0")
+            ax.text(0.5, 0.5, "MISSING", ha="center", va="center",
+                    fontsize=14, color="red", fontweight="bold", transform=ax.transAxes)
+
+        ax.set_title(f"{name}\n{count} clips", fontsize=11, fontweight="bold")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.5)
+            spine.set_color("#ccc")
+
+    # Hide unused subplots
+    for j in range(len(verticals), len(axes_flat)):
+        axes_flat[j].set_visible(False)
+
+    total_clips = sum(clip_counts.values())
+    fig.suptitle(f"Test Content: {total_clips} clips across {len([v for v in verticals if clip_counts.get(v['id'], 0) > 0])} verticals", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(figures_dir / "content_gallery.png")
+    plt.close(fig)
+    print(f"  content_gallery.png")
+
+
 # ── Main ─────────────────────────────────────────────────────────
 
 
@@ -1001,11 +1057,7 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_breakeven(results, pricing_rows, config, figures_dir)
     gen_rate_control_accuracy(results, config, figures_dir)
 
-    # Conceptual diagrams — always placeholders (hand-designed)
-    for name, title in [
-        ("content_gallery", "Test Content Gallery"),
-    ]:
-        plot_placeholder(title, figures_dir / f"{name}.png")
+    gen_content_gallery(config, figures_dir)
 
     print(f"\nDone. {len(list(figures_dir.glob('*.png')))} figures in {figures_dir}/")
 

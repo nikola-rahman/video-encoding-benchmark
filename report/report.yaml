@@ -44,14 +44,18 @@ codecs:
 verticals:
   - id: ecommerce
     name: "E-Commerce"
+    thumb: "thumb_ecom_watch.jpg"
   - id: ugc
     name: "UGC"
+    thumb: "thumb_ugc_rare_photos.jpg"
   - id: archive
     name: "Archives"
-  - id: education
-    name: "Education"
+    thumb: "thumb_archive_achievement_usa_1955.jpg"
+  # - id: education
+  #   name: "Education"
   - id: security
     name: "Security & Surveillance"
+    thumb: "thumb_security_virat_001.jpg"
 
 # Input data
 data:
