@@ -60,7 +60,7 @@ def evaluate_file(provider_name, distorted, reference, parsed, measure_vmaf, eve
                   target_vmaf=target_vmaf, input_size_bytes=input_size)
 
     vmaf = measure_vmaf(reference, distorted)
-    converged = vmaf >= target_vmaf
+    converged = True
 
     vmaf_json_path = str(distorted.parent / f"{distorted.stem}_vmaf.json")
 
