@@ -1003,7 +1003,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
 
     # Conceptual diagrams — always placeholders (hand-designed)
     for name, title in [
-        ("benchmark_landscape", "Benchmark Landscape Matrix"),
         ("gop_diagram", "GOP Structure Comparison"),
         ("content_gallery", "Test Content Gallery"),
     ]:
