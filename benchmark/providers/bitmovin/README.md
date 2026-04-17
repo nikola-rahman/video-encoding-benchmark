@@ -11,7 +11,7 @@ Cloud encoding API with Per-Title optimization. Bitmovin analyzes content comple
 | Variable | Description |
 |----------|-------------|
 | `BITMOVIN_API_KEY` | Bitmovin API key |
-| `BITMOVIN_S3_OUTPUT_ID` | Pre-configured S3 output ID in Bitmovin dashboard |
+| `BITMOVIN_S3_OUTPUT_ID` | S3 output resource ID from the Bitmovin dashboard, or generate with `python create_bitmovin_output.py` from this directory |
 
 ## Config (benchmark.yaml)
 
