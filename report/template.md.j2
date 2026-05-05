@@ -159,6 +159,8 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Why percentiles matter:** A file with VMAF mean 95 but a 1st-percentile of 72 has severe transient quality drops that a viewer will notice. Mean VMAF alone is insufficient for quality assessment.
 
+**Metric chosen for Vidaio:** Vidaio only supports `vmaf_v0.6.1neg` — no other VMAF model, PSNR, SSIM, or other quality metric can be targeted. This dictates the benchmark metric for the entire report, since Vidaio could not be included otherwise. The other providers (AWS MediaConvert, Bitmovin, Brightcove Zencoder) have no such restriction and can be benchmarked against any quality metric.
+
 ### 3.4 Handling Black-Box Providers
 
 Mux and Cloudflare Stream do not expose quality controls. This creates an asymmetry:
