@@ -291,17 +291,18 @@ def run_vmaf(
 
 
 def extract_vmaf_score(vmaf_json: dict) -> float:
-    """Extract the mean VMAF score from vmaf JSON output."""
+    """Extract the harmonic mean VMAF score from vmaf JSON output."""
     pooled = vmaf_json.get("pooled_metrics", {})
     vmaf_metric = pooled.get("vmaf", {})
-    mean = vmaf_metric.get("mean")
-    if mean is not None:
-        return mean
+    harmonic = vmaf_metric.get("harmonic_mean")
+    if harmonic is not None:
+        return harmonic
 
     frames = vmaf_json.get("frames", [])
     if frames:
         scores = [f["metrics"]["vmaf"] for f in frames if "vmaf" in f.get("metrics", {})]
         if scores:
-            return sum(scores) / len(scores)
+            n = len(scores)
+            return n / sum(1.0 / s for s in scores if s > 0)
 
     raise ValueError("Could not extract VMAF score from results")
