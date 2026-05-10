@@ -295,7 +295,7 @@ def gen_codec_rd(results, config, figures_dir):
 
         ax.set_xlabel("Bitrate (kbps)")
         ax.set_ylabel("VMAF (harmonic mean)")
-        ax.set_title(f"Rate-Distortion — {codec_label} (median + IQR per VMAF target, thin lines = individual clips)")
+        ax.set_title(f"Rate-Distortion — {codec_label}")
         ax.set_xscale("log")
         ax.legend(fontsize=10, loc="lower right")
         ax.grid(True, alpha=0.3, which="both")
