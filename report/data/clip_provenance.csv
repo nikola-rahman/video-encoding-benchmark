@@ -1,0 +1,23 @@
+clip,resolution,frame_count,pix_fmt,sha256,source_url,license
+archive_achievement_usa_1955,400x300,3596,yuv420p,8ea375a449b255bc6d4c5a53341c096eccc25f2428edafe8994f8c8e40a01e97,https://archive.org/download/Achievem1955/Achievem1955.ogv,Public Domain
+archive_coke_1954,400x300,1697,yuv420p,552d1e8073c02fd478f8a281893a8d644689104e9406de22a976e8708210dd59,https://archive.org/download/Coke_Commercial/Coke_Commercial.ogv,Public Domain
+archive_desoto_1955,400x300,2457,yuv420p,6b48ded1d8affbb8287cff1b7869faf4a08b8d0bfdbbcd9feb659ba7e97de120,https://archive.org/download/DeSoto5/DeSoto5.ogv,Public Domain
+archive_experiments_1940,400x300,3596,yuv420p,8d08a2c6d07aee7fdaab41a26c897e6291d0fab945dedb8426bc8b197ab395f9,https://archive.org/download/Experime1940/Experime1940.ogv,Public Domain
+archive_spot_news_1937,400x300,3596,yuv420p,b974dd5f710b4dfe147088c6eb34e5b550ecae67f0d85dd8fc1af10c9cfb03ba,https://archive.org/download/SpotNews1937/SpotNews1937.ogv,Public Domain
+ecom_iphone17,1920x1080,1375,yuv420p,6ed95b7fbf9628fde93e02398abd88e093ebb0d48aef9df828884c01c379874e,https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/96171188-9a45-4cfd-a6e5-d508d1295a3a/default.jobtemplate.hls.m3u8,Amazon
+ecom_mountain_bike,1280x720,3597,yuv420p,3aa955be382d07011193c64c1b796f2d5f9eb825fb71b31bc97a76f4ee2b83d0,https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/12f1ae85-6ea2-42d7-a36b-97a30c19db92/default.jobtemplate.hls720.m3u8,Amazon
+ecom_nike_sneakers,1080x1440,450,yuv420p,8a96f92d922b5589cfa9f637ff19a46ec3ef8313f8affe6c41885f44cf8f3c7d,https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/6db80be0-ff94-435b-8f34-f5b137efe2c6/default.vertical.jobtemplate.hls.m3u8,Amazon
+ecom_supplements,1280x720,744,yuv420p,09c9f5d0efae5bbf638438ba6e843ce7e67cacaad96d45b57aa73fdca1e0d6ca,https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f04ad07d-98e3-49fa-9a64-b4baf3094a46/default.jobtemplate.hls720.m3u8,Amazon
+ecom_watch,1920x1080,307,yuv420p,27560f8b9118d48bd95bc800aa855e83e9632e3c3ef6876f4b57864f5472c7bd,https://m.media-amazon.com/images/S/vse-vms-transcoding-artifact-eu-west-1-prod/f096a067-6581-4456-b776-f5746f5f76bb/default.jobtemplate.hls.m3u8,Amazon
+security_virat_001,1920x1080,3597,yuv420p,d7c253a07d1fb4fdf0ea9e898904dccc9146e29fdbe3d190a72ae1deb402d564,-,VIRAT Dataset Agreement
+security_virat_002,1920x1080,3597,yuv420p,f02470497821f7f77103e0ffc482de3c0ccb2d99a3903c622f55edd181070ef2,-,VIRAT Dataset Agreement
+security_virat_003,1920x1080,3597,yuv420p,4f0897a11c87fdf1044298969be461ee6464786137d7e491b51c83ba7ab0a811,-,VIRAT Dataset Agreement
+security_virat_004,1920x1080,3597,yuv420p,e7230057e45011303d00974be60c364cb857db0f9a637b8307018f50152138e1,-,VIRAT Dataset Agreement
+security_virat_006,1920x1080,3597,yuv420p,c7b156d3495f637b77ac15d137a8f5151adf847f3a3305f1fc0cd31f20ee7915,-,VIRAT Dataset Agreement
+security_virat_101,1920x1080,3597,yuv420p,f10a449b1e750c3cc50d3810b764a901148d16ae8deea41154abd3ba91783646,-,VIRAT Dataset Agreement
+security_virat_102,1920x1080,3597,yuv420p,ff9ecd69d9d0dc2bc2d662a36c12ee9964b5d4749853cbab9acb950a3050f0d0,-,VIRAT Dataset Agreement
+ugc_dog_compilation,1080x1920,990,yuv420p,4ae56277a95450438df48029621dc7be92df779e6527526a4be11fa2ab0a876a,https://www.youtube.com/shorts/GZoq4eCgmgY,YouTube
+ugc_macbook_painting,2160x3840,7139,yuv420p,c44bd67d7349ae3db04e2d1c3f9b48331cf005fac4bb3ca423989ed7ed609d76,https://www.youtube.com/shorts/Yx3Pc50sf0M,YouTube
+ugc_rare_photos,2160x3840,1611,yuv420p,ce5c561621c49dfba9db27b25087bdeb4539d9f0a4c03505a5a11b9bcc57613b,https://www.youtube.com/shorts/UEAIGUtZAfk,YouTube
+ugc_reaction_comedy,1080x1920,5804,yuv420p,54f93c864ddc1d0a9cde4d143c5ec453224927e6a36dde3aa6d2374c1ee2e717,https://www.youtube.com/shorts/OQylRLFz-tQ,YouTube
+ugc_surprise_reaction,1440x1600,3525,yuv420p,a622147d0f182367eca9b63795b9e41764c2de6582bb81bda02a28f70b783877,https://www.youtube.com/shorts/WtH-ig9PuF0,YouTube

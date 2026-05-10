@@ -1020,6 +1020,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
     clips = load_csv(report_dir / config["data"]["clip_metadata"])
     encoding_times = load_csv(report_dir / config["data"]["encoding_times"])
     pricing_rows = load_csv(report_dir / config["data"]["pricing"])
+    clip_provenance = load_csv(report_dir / "data" / "clip_provenance.csv")
 
     # Load raw JSONL events to derive iteration counts
     import json, glob
@@ -1084,6 +1085,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "speed_summary": build_speed_summary(jsonl_events, config),
         "pricing": build_pricing_data(pricing_rows, jsonl_events, config),
         "per_vertical_bdrate": per_vertical_bdrate,
+        "clip_provenance": clip_provenance,
         "storage_projection": build_storage_projection(comparable_results, clips, config),
         "tco_scenario": tco_scenario,
         "tco": build_tco(comparable_results, pricing_rows, config),

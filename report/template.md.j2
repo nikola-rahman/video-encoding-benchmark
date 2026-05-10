@@ -111,7 +111,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 ### 3.1 Test Content
 
-{{ stats.n_clips }} source videos across the four verticals, chosen to span a diverse range of spatial and temporal complexity. Synthetic test sequences (ITU reference clips, Blender demos) were avoided in favor of content representative of real production workloads. The content gallery and SI/TI scatter below show the corpus; per-clip provenance is in Appendix C.
+{{ stats.n_clips }} source videos across the four verticals, chosen to span a diverse range of spatial and temporal complexity. Synthetic test sequences (ITU reference clips, Blender demos) were avoided in favor of content representative of real production workloads. The content gallery and SI/TI scatter below show the corpus; per-clip provenance is in Appendix B.
 
 **Input preparation:** All source files were re-encoded to H.264 CRF 18, no audio, MP4 container. Videos longer than 120 seconds were trimmed from the start. Pixel aspect ratio is normalized to 1:1 (square pixels), so encoders that auto-rescale non-square sources produce outputs at the same dimensions as the reference and VMAF can be measured directly.
 
@@ -261,16 +261,7 @@ Wall-clock time from job submission to a passed result, derived from search even
 
 ## Appendices
 
-### Appendix A: Per-Clip Data Tables
-
-Complete data for every clip × provider × rendition combination.
-
-| Clip | Provider | Codec | Quality Setting | Bitrate (kbps) | File Size (bytes) | VMAF Mean | VMAF Min | VMAF P1 | VMAF P5 | Compression Ratio |
-|------|----------|-------|----------------|---------------|-------------------|-----------|----------|---------|---------|-------------------|
-{% for r in all_results %}| {{ r.clip }} | {{ r.provider }} | {{ r.codec }} | {{ r.quality_setting }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ r.file_size_bytes }} | {{ "%.1f" | format(r.vmaf_harmonic_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.vmaf_p05) }} | {{ "%.1f" | format(r.compression_ratio) }} |
-{% endfor %}
-
-### Appendix B: BD-Rate Computation Methodology
+### Appendix A: BD-Rate Computation Methodology
 
 **Definition:** Bjontegaard Delta Rate (BD-Rate) measures the average percentage difference in bitrate between two rate-distortion curves at equivalent quality levels (Bjontegaard, 2001).
 
@@ -280,23 +271,12 @@ Complete data for every clip × provider × rendition combination.
 
 **Edge cases:** Black-box providers with a single data point are excluded from BD-Rate computation.
 
-### Appendix C: Test Content Source Details
+### Appendix B: Test Content Source Details
 
-| Clip | SHA-256 | Source URL | License | Resolution | Frame Count | Pixel Format |
-|------|---------|-----------|---------|------------|-------------|--------------|
-{% for c in clips %}| {{ c.clip }} | {{ c.sha256 | d("TBD") }} | {{ c.source_url | d("TBD") }} | {{ c.license }} | {{ c.resolution }} | {{ c.frame_count | d("TBD") }} | {{ c.pixel_format | d("TBD") }} |
+| Clip | License | Source URL | Resolution | Frames | Pixel Format |
+|------|---------|-----------|------------|-------:|--------------|
+{% for c in clip_provenance | sort(attribute='clip') %}| {{ c.clip }} | {{ c.license }} | {{ c.source_url if c.source_url and c.source_url != "-" else "(restricted dataset)" }} | {{ c.resolution }} | {{ c.frame_count }} | {{ c.pix_fmt }} |
 {% endfor %}
-
-### Appendix D: Glossary
-
-| Term | Definition |
-|------|-----------|
-| **VMAF** | Video Multimethod Assessment Fusion. A perceptual video quality metric developed by Netflix. Scale 0-100, where higher is better. |
-| **BD-Rate** | Bjontegaard Delta Rate. Measures the average bitrate difference between two RD curves at equivalent quality. Negative values indicate bitrate savings. |
-| **CRF** | Constant Rate Factor. A quality-target rate control mode where the encoder adjusts bitrate to maintain a target quality. Lower CRF = higher quality. |
-| **QVBR** | Quality-Defined Variable Bitrate. AWS MediaConvert's quality-target mode. Scale 1-10. |
-| **GOP** | Group of Pictures. The sequence of frames between I-frames. Longer GOPs are more efficient but less suitable for seeking/segmenting. |
-| **I-frame** | Intra-coded frame. A complete image that does not reference other frames. Expensive in bits but required for random access. |
 | **P-frame** | Predicted frame. References previous frames to achieve higher compression. |
 | **B-frame** | Bidirectionally predicted frame. References both previous and future frames for maximum compression. |
 | **RD curve** | Rate-Distortion curve. Plots quality (VMAF) against bitrate. A curve closer to the top-left is more efficient. |
