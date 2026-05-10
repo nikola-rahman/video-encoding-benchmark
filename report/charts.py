@@ -703,42 +703,6 @@ def gen_codec_comparison(results, config, figures_dir):
     print(f"  codec_comparison_overlay.png")
 
 
-def gen_heatmap(results, config, figures_dir):
-    """Figure 4.3.2 — Codec × Provider heatmap."""
-    codecs = config.get("codecs", [])
-    non_bb = sorted([p for p in config["providers"] if not p.get("blackbox")], key=lambda p: p["name"])
-
-    data = []
-    labels_y = []
-    for p in non_bb:
-        row = []
-        labels_y.append(p["name"])
-        for codec in codecs:
-            points = [r for r in results if r["provider"] == p["id"] and r.get("codec") == codec]
-            vmafs = [r["vmaf_harmonic_mean"] for r in points if r.get("vmaf_harmonic_mean")]
-            row.append(sum(vmafs) / len(vmafs) if vmafs else 0)
-        data.append(row)
-
-    if not data:
-        return
-
-    fig, ax = plt.subplots(figsize=(6, max(3, len(labels_y) * 0.8)))
-    im = ax.imshow(data, cmap="RdYlGn", aspect="auto", vmin=85, vmax=95)
-    ax.set_xticks(range(len(codecs)))
-    ax.set_xticklabels(["AV1" if c == "av1" else "H.265" for c in codecs])
-    ax.set_yticks(range(len(labels_y)))
-    ax.set_yticklabels(labels_y)
-
-    for i in range(len(labels_y)):
-        for j in range(len(codecs)):
-            ax.text(j, i, f"{data[i][j]:.1f}", ha="center", va="center", fontsize=11, fontweight="bold")
-
-    ax.set_title("Average VMAF by Provider × Codec")
-    fig.colorbar(im, ax=ax, label="VMAF")
-    fig.tight_layout()
-    fig.savefig(figures_dir / "codec_provider_heatmap.png")
-    plt.close(fig)
-    print(f"  codec_provider_heatmap.png")
 
 
 def gen_perframe_traces(perframe, clips, config, figures_dir):
@@ -1170,7 +1134,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_encoding_speed(encoding_times, config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
     gen_codec_comparison(results, config, figures_dir)
-    gen_heatmap(results, config, figures_dir)
 
     # Charts from extended data (per-frame VMAF, iframe)
     perframe_path = report_dir / config["data"].get("perframe_vmaf", "data/perframe_vmaf.csv")
