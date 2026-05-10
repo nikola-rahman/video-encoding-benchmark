@@ -900,8 +900,8 @@ def build_providers_context(config: dict) -> list[dict]:
     provider_meta = {
         "bitmovin": {
             "rate_control": "CRF",
-            "quality_param": "crf (0-51 for H.265)",
-            "codec_support": "H.265 (AV1 TODO)",
+            "quality_param": "crf (0-51 for H.265, 0-63 for AV1)",
+            "codec_support": "H.265, AV1",
             "steps_to_optimal": "Binary search over CRF values to hit target VMAF",
             "quality_control": "CRF (single-pass)",
             "codec_selection": "Full control",
@@ -933,7 +933,7 @@ def build_providers_context(config: dict) -> list[dict]:
         "mediaconvert": {
             "rate_control": "QVBR",
             "quality_param": "QvbrQualityLevel (1-10) + fine-tune",
-            "codec_support": "H.265 MULTI_PASS_HQ (AV1 TODO)",
+            "codec_support": "H.265, AV1 (MULTI_PASS_HQ)",
             "steps_to_optimal": "Binary search over QVBR levels to hit target VMAF",
             "quality_control": "QVBR with fine-tune",
             "codec_selection": "Full control",
@@ -981,7 +981,7 @@ def build_providers_context(config: dict) -> list[dict]:
         "zencoder": {
             "rate_control": "Quality",
             "quality_param": "quality (1-5)",
-            "codec_support": "H.265 (AV1 TODO)",
+            "codec_support": "H.265 only (no AV1 support)",
             "steps_to_optimal": "Binary search over quality 1-5 to hit target VMAF",
             "quality_control": "Quality parameter + speed 1 (best)",
             "codec_selection": "Full control",
