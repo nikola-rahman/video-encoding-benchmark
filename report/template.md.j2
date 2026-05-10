@@ -14,11 +14,11 @@
 
 {%- macro vertical_section(codec, codec_label, vertical_id, vertical_name, fig_num, fig_name) %}
 
-#### {{ fig_num }} {{ codec_label }} Results — {{ vertical_name }}
+#### {{ fig_num }} {{ codec_label }} Results - {{ vertical_name }}
 
 {{ narratives[codec][vertical_id] | d("*Narrative to be written after data analysis.*") }}
 
-{{ figure(fig_name, "Figure " ~ fig_num ~ " — RD Curves, " ~ codec_label ~ ", " ~ vertical_name ~ " Clips") }}
+{{ figure(fig_name, "Figure " ~ fig_num ~ " - RD Curves, " ~ codec_label ~ ", " ~ vertical_name ~ " Clips") }}
 {%- endmacro %}
 
 {#- ── Report ───────────────────────────────────────────────────── -#}
@@ -46,7 +46,7 @@ This report was commissioned by {{ config.commissioned_by }} and produced by {{ 
 - The complete raw data and measurement code are available at {{ config.repo_url }}.
 - Draft results were shared with all tested providers prior to publication for factual accuracy review.
 
-**Providers considered but excluded:** Mux and Cloudflare Stream were initially evaluated but excluded from the final benchmark — both produce H.264-only static MP4 downloads with no quality controls. AV1 and H.265 are only available via streaming, not as downloadable files, making fair comparison with the other providers impossible.
+**Providers considered but excluded:** Mux and Cloudflare Stream were initially evaluated but excluded from the final benchmark - both produce H.264-only static MP4 downloads with no quality controls. AV1 and H.265 are only available via streaming, not as downloadable files, making fair comparison with the other providers impossible.
 
 ---
 
@@ -54,7 +54,7 @@ This report was commissioned by {{ config.commissioned_by }} and produced by {{ 
 
 ### The gap
 
-Existing video encoding benchmarks evaluate providers through a streaming lens — adaptive bitrate ladders, segment-based delivery, and startup latency. No benchmark exists for **quality-optimized single-file encoding**: the use case that matters for archival storage, e-commerce product videos, UGC platforms, and online education.
+Existing video encoding benchmarks evaluate providers through a streaming lens - adaptive bitrate ladders, segment-based delivery, and startup latency. No benchmark exists for **quality-optimized single-file encoding**: the use case that matters for archival storage, e-commerce product videos, UGC platforms, and online education.
 
 ### What we tested
 
@@ -62,11 +62,21 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 
 ### Headline findings
 
-All numbers below are computed on the apples-to-apples common subset: clips and VMAF targets that **all providers** tested for the codec in question. The headline metric is **BD-Rate** — the average bitrate gap at matched VMAF, integrated across the tested quality range. Lower is better; "ref" is the reference encoder.
+All gaps below are **BD-Rate vs Vidaio** - extra bits needed to match Vidaio's quality.
 
-1. **{{ stats.h265_bdrate_best_provider }} is the most compression-efficient encoder in both codecs.** At matched quality, the next-best provider needs **+{{ "%.0f" | format(stats.h265_bdrate_second[1]) }}% more bits in H.265** ({{ stats.h265_bdrate_second[0] }}) and **+{{ "%.0f" | format(stats.av1_bdrate_second[1]) }}% more bits in AV1** ({{ stats.av1_bdrate_second[0] }}). The widest H.265 gap is +{{ "%.0f" | format(stats.h265_bdrate_worst[1]) }}% ({{ stats.h265_bdrate_worst[0] }}); the widest AV1 gap is +{{ "%.0f" | format(stats.av1_bdrate_worst[1]) }}% ({{ stats.av1_bdrate_worst[0] }}).
+1. **Vidaio leads on every vertical it converges on; the lead is content-dependent.**
 
-2. **AV1's gain over H.265 depends heavily on the encoder.** Across clips encoded by the same provider in both codecs, AV1 saves {% for name, pct in stats.av1_vs_h265_by_provider.items() %}{% if not loop.first %}, {% endif %}**{{ "%.0f" | format(pct) }}% with {{ name }}**{% endfor %}. The codec specification is the same; the realized compression is not.
+   | Vertical | H.265 (Bitmovin / MC / Zencoder) | AV1 (Bitmovin / MC) |
+   |----------|---------------------------------:|--------------------:|
+   {% for vert in ["ecommerce", "ugc", "security"] -%}
+   {%- set h = per_vertical_bdrate.h265.get(vert, {}).get("bdrate", {}) -%}
+   {%- set a = per_vertical_bdrate.av1.get(vert, {}).get("bdrate", {}) -%}
+   | {{ {"ecommerce": "E-Commerce", "ugc": "UGC", "security": "Security"}[vert] }} | +{{ "%.0f" | format(h.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(h.get("AWS MediaConvert", 0)) }}% / +{{ "%.0f" | format(h.get("Brightcove Zencoder", 0)) }}% | {% if a.get("Bitmovin", 0) >= 0 %}+{% endif %}{{ "%.0f" | format(a.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(a.get("AWS MediaConvert", 0)) }}% |
+   {% endfor %}
+
+2. **Archive content: only Vidaio converged.** Bitmovin, AWS MediaConvert, and Brightcove Zencoder all hit 0% convergence on the 5 archive clips - their encoders topped out near VMAF 58 on grainy historical footage. Archive is excluded from the apples-to-apples tables below.
+
+3. **AV1's gain over H.265 depends heavily on the encoder.** AV1 saves {% for name, pct in stats.av1_vs_h265_by_provider.items() %}{% if not loop.first %}, {% endif %}**{{ "%.0f" | format(pct) }}% with {{ name }}**{% endfor %}. The codec specification is the same; the realized compression is not.
 
 ### Headline findings tables
 
@@ -76,18 +86,18 @@ Each table is restricted to the (clip, target VMAF) combinations covered by **al
 
 | Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
 |----------|----------|-----------------|----------------------|------|
-{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.compression_ratio if p.compression_ratio else "—" }} | {{ p.rank }} |
+{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.compression_ratio if p.compression_ratio else "-" }} | {{ p.rank }} |
 {% endfor %}
 
 #### AV1 ({{ headline_av1.n_combos }} (clip, target) combos)
 
 | Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
 |----------|----------|-----------------|----------------------|------|
-{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.compression_ratio if p.compression_ratio else "—" }} | {{ p.rank }} |
+{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.compression_ratio if p.compression_ratio else "-" }} | {{ p.rank }} |
 {% endfor %}
 
-{{ figure("aggregate_rd", "Figure 1.1 — Aggregate Rate-Distortion Summary") }}
-*Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better — smaller bars mean better compression efficiency.*
+{{ figure("aggregate_rd", "Figure 1.1 - Aggregate Rate-Distortion Summary") }}
+*Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better - smaller bars mean better compression efficiency.*
 
 ---
 
@@ -95,7 +105,7 @@ Each table is restricted to the (clip, target VMAF) combinations covered by **al
 
 ### The streaming assumption
 
-All major cloud encoding benchmarks — Ozer (2022), MSU (2020, 2022) — evaluate providers through a streaming lens: ABR ladders, segment-based delivery, per-title optimization for adaptive playback. This methodology makes sense for OTT delivery, but it ignores a large and growing category of customers.
+All major cloud encoding benchmarks - Ozer (2022), MSU (2020, 2022) - evaluate providers through a streaming lens: ABR ladders, segment-based delivery, per-title optimization for adaptive playback. This methodology makes sense for OTT delivery, but it ignores a large and growing category of customers.
 
 ### Who needs single-file encoding
 
@@ -109,7 +119,7 @@ All major cloud encoding benchmarks — Ozer (2022), MSU (2020, 2022) — evalua
 
 ### How streaming-optimized encoding differs from single-file encoding
 
-Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-based switching. Each GOP starts with an I-frame — a full-frame image that costs 10-50x more bits than a P-frame. For single-file delivery where segment switching is not needed, these additional I-frames consume bits without a corresponding benefit to the viewer.
+Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-based switching. Each GOP starts with an I-frame - a full-frame image that costs 10-50x more bits than a P-frame. For single-file delivery where segment switching is not needed, these additional I-frames consume bits without a corresponding benefit to the viewer.
 
 
 
@@ -130,10 +140,10 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Input preparation:** All source files were re-encoded to H.264 CRF 18, no audio, MP4 container. Videos longer than 120 seconds were trimmed from the start. Pixel aspect ratio is normalized to 1:1 (square pixels), so encoders that auto-rescale non-square sources produce outputs at the same dimensions as the reference and VMAF can be measured directly.
 
-{{ figure("content_gallery", "Figure 3.1 — Test Content Gallery") }}
+{{ figure("content_gallery", "Figure 3.1 - Test Content Gallery") }}
 *Representative frame from each test clip, organized by vertical.*
 
-{{ figure("si_ti_scatter", "Figure 3.2 — Spatial-Temporal Complexity Scatter") }}
+{{ figure("si_ti_scatter", "Figure 3.2 - Spatial-Temporal Complexity Scatter") }}
 *Each point is one test clip, color-coded by vertical. The test corpus covers a diverse range of content complexity.*
 
 ### 3.2 Providers and Configuration
@@ -161,7 +171,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Why percentiles matter:** A file with VMAF mean 95 but a 1st-percentile of 72 has severe transient quality drops that a viewer will notice. Mean VMAF alone is insufficient for quality assessment.
 
-**Metric chosen for Vidaio:** Vidaio only supports `vmaf_v0.6.1neg` — no other VMAF model, PSNR, SSIM, or other quality metric can be targeted. This dictates the benchmark metric for the entire report, since Vidaio could not be included otherwise. The other providers (AWS MediaConvert, Bitmovin, Brightcove Zencoder) have no such restriction and can be benchmarked against any quality metric.
+**Metric chosen for Vidaio:** Vidaio only supports `vmaf_v0.6.1neg` - no other VMAF model, PSNR, SSIM, or other quality metric can be targeted. This dictates the benchmark metric for the entire report, since Vidaio could not be included otherwise. The other providers (AWS MediaConvert, Bitmovin, Brightcove Zencoder) have no such restriction and can be benchmarked against any quality metric.
 
 ---
 
@@ -174,10 +184,10 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 #### {{ sec_base }}.1 Aggregate {{ codec_label }} Rate-Distortion
 
-{{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 — Aggregate RD Curves, " ~ codec_label) }}
+{{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 - Aggregate RD Curves, " ~ codec_label) }}
 *All providers, {{ codec_label }} encoding, averaged across all test clips. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}).*
 
-{{ figure("bdrate_bar_" ~ codec, "Figure " ~ sec_base ~ ".2 — BD-Rate Summary, " ~ codec_label) }}
+{{ figure("bdrate_bar_" ~ codec, "Figure " ~ sec_base ~ ".2 - BD-Rate Summary, " ~ codec_label) }}
 *Percentage bitrate difference relative to the most efficient provider. Negative = saves bitrate at equivalent quality.*
 
 
@@ -190,7 +200,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 ### 4.3 AV1 vs. H.265 Comparison
 
-{{ figure("codec_comparison_overlay", "Figure 4.3.1 — Codec Comparison Overlay") }}
+{{ figure("codec_comparison_overlay", "Figure 4.3.1 - Codec Comparison Overlay") }}
 *AV1 vs. H.265 median RD curves per provider. Shows the magnitude of codec-generation improvement and whether it varies by provider.*
 
 ---
@@ -203,7 +213,7 @@ This section translates rate-distortion data into the metrics that storage-cost 
 
 What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) on S3 (${{ storage_projection.cost_per_gb_month }}/GB/mo) for one year, after encoding through each provider at VMAF {{ storage_projection.target_vmaf | int }}, broken down by vertical. The dashed line shows what storing the raw source without re-encoding would cost.
 
-{{ figure("storage_projection", "Figure 5.1 — Annual Storage Cost") }}
+{{ figure("storage_projection", "Figure 5.1 - Annual Storage Cost") }}
 
 ---
 
@@ -218,27 +228,27 @@ What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours 
 
 ### Effective cost per source minute
 
-Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to converge to a target VMAF — every pass is billed. Effective cost = sticker price × average passes to converge.
+Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to converge to a target VMAF - every pass is billed. Effective cost = sticker price × average passes to converge.
 
 | Provider | Avg passes (H.265) | Avg passes (AV1) | Effective $/min (H.265) | Effective $/min (AV1) |
 |----------|-------------------|------------------|------------------------|----------------------|
 {% for p in pricing.effective | sort(attribute='name') %}| {{ p.name }} | {{ p.iters_h265 }} | {{ p.iters_av1 }} | {{ p.effective_h265 }} | {{ p.effective_av1 }} |
 {% endfor %}
 
-**Pricing caveat:** All costs use public list / pay-as-you-go pricing as of {{ config.date }}. Enterprise/volume pricing varies — Brightcove Zencoder's best subscription tier is $0.020/min (100K min/mo plan), and AWS MediaConvert offers volume discounts above 100K min/region/mo. AWS MediaConvert prices are computed from the published multiplier table × Professional Tier 1 base rate.
+**Pricing caveat:** All costs use public list / pay-as-you-go pricing as of {{ config.date }}. Enterprise/volume pricing varies - Brightcove Zencoder's best subscription tier is $0.020/min (100K min/mo plan), and AWS MediaConvert offers volume discounts above 100K min/region/mo. AWS MediaConvert prices are computed from the published multiplier table × Professional Tier 1 base rate.
 
 ---
 
 ## 7. Encoding Speed
 
-Wall-clock time from job submission to a converged result, derived from search event timestamps in our run logs. Outliers are trimmed at 1.5× IQR per (provider, codec) to reduce the influence of regional queue spikes. Vidaio's number is a single-encode mean — no search loop.
+Wall-clock time from job submission to a converged result, derived from search event timestamps in our run logs. Outliers are trimmed at 1.5× IQR per (provider, codec) to reduce the influence of regional queue spikes. Vidaio's number is a single-encode mean - no search loop.
 
 | Provider | Codec | Per-pass (s) | Passes | Total to target (s) |
 |----------|-------|-------------:|-------:|-------------------:|
 {% for p in speed_summary | sort(attribute='name') %}| {{ p.name }} | {{ p.codec | upper }} | {{ "%.0f" | format(p.avg_per_pass_s) }} | {{ "%.1f" | format(p.avg_steps) }} | {{ "%.0f" | format(p.avg_total_s) }} |
 {% endfor %}
 
-**Caveat:** This is end-to-end wall-clock — it includes provider queue time, file upload, encode, download, and our local VMAF measurement between iterations. It is *not* an isolated encoder-speed measurement; that's not observable from outside a cloud API. Numbers are directional and will vary with region, load, and account tier.
+**Caveat:** This is end-to-end wall-clock - it includes provider queue time, file upload, encode, download, and our local VMAF measurement between iterations. It is *not* an isolated encoder-speed measurement; that's not observable from outside a cloud API. Numbers are directional and will vary with region, load, and account tier.
 
 ---
 

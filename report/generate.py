@@ -65,7 +65,7 @@ def compute_bdrate(ref_points: list[dict], test_points: list[dict]) -> float | N
         pairs = [(p["vmaf_harmonic_mean"], p["bitrate_kbps"]) for p in pts
                  if p.get("vmaf_harmonic_mean") is not None and p.get("bitrate_kbps") is not None]
         pairs.sort(key=lambda x: x[0])
-        # PCHIP requires strictly increasing x — deduplicate by averaging bitrates at same VMAF
+        # PCHIP requires strictly increasing x - deduplicate by averaging bitrates at same VMAF
         deduped = []
         for vmaf, br in pairs:
             if deduped and abs(vmaf - deduped[-1][0]) < 0.01:
@@ -291,8 +291,8 @@ def build_codec_summary(results: list[dict], config: dict) -> dict:
             summary[codec].append({
                 "name": e["name"],
                 "vmaf_avg": e["vmaf_avg"],
-                "bitrate_at_target": f"{e['br_at_target']:.0f} kbps" if e["br_at_target"] else "—",
-                "filesize_at_target": f"{e['fs_at_target'] / (1024*1024):.1f} MB" if e["fs_at_target"] else "—",
+                "bitrate_at_target": f"{e['br_at_target']:.0f} kbps" if e["br_at_target"] else "-",
+                "filesize_at_target": f"{e['fs_at_target'] / (1024*1024):.1f} MB" if e["fs_at_target"] else "-",
                 "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
                 "compression_ratio": e["compression_ratio"],
             })
@@ -429,7 +429,7 @@ def avg_iterations_by_provider_codec(events: list[dict]) -> dict:
 
 
 def _parse_price(s):
-    if not s or s in ("TBD", "—", "n/a"):
+    if not s or s in ("TBD", "-", "n/a"):
         return None
     try:
         return float(str(s).replace("$", "").strip())
@@ -447,8 +447,8 @@ def build_pricing_data(pricing_rows: list[dict], events: list[dict], config: dic
         sticker.append({
             "name": provider_names.get(r["provider"], r["provider"]),
             "pricing_model": r.get("pricing_model", ""),
-            "cost_per_min_1080p_h265": r.get("cost_per_min_1080p_h265", "—"),
-            "cost_per_min_1080p_av1": r.get("cost_per_min_1080p_av1", "—"),
+            "cost_per_min_1080p_h265": r.get("cost_per_min_1080p_h265", "-"),
+            "cost_per_min_1080p_av1": r.get("cost_per_min_1080p_av1", "-"),
             "notes": r.get("notes", ""),
             "source": r.get("source", ""),
         })
@@ -463,13 +463,13 @@ def build_pricing_data(pricing_rows: list[dict], events: list[dict], config: dic
 
         def fmt(sticker, iters):
             if sticker is None or iters is None:
-                return "—"
+                return "-"
             return f"${sticker * iters:.3f}"
 
         effective.append({
             "name": provider_names.get(pid, pid),
-            "iters_h265": f"{iters_h265:.1f}" if iters_h265 else "—",
-            "iters_av1": f"{iters_av1:.1f}" if iters_av1 else "—",
+            "iters_h265": f"{iters_h265:.1f}" if iters_h265 else "-",
+            "iters_av1": f"{iters_av1:.1f}" if iters_av1 else "-",
             "effective_h265": fmt(h265_sticker, iters_h265),
             "effective_av1": fmt(av1_sticker, iters_av1),
         })
@@ -614,7 +614,7 @@ def build_tco(results: list[dict], pricing_rows: list[dict], config: dict) -> li
         max_cost = max(r["total_cost"] for r in rows)
         for r in rows:
             saving = max_cost - r["total_cost"]
-            r["savings"] = f"-${saving:,.0f}" if saving > 0 else "—"
+            r["savings"] = f"-${saving:,.0f}" if saving > 0 else "-"
 
     return rows
 
@@ -671,8 +671,8 @@ def build_cost_per_quality(results: list[dict], pricing_rows: list[dict], config
 
         rows.append({
             "name": provider_names.get(pid, pid),
-            "cost_per_vmaf_point": f"${cost_per_vmaf:,.0f}" if cost_per_vmaf else "—",
-            "cost_per_gb_saved": f"${cost_per_gb:,.2f}" if gb_saved > 0 else "— (baseline)",
+            "cost_per_vmaf_point": f"${cost_per_vmaf:,.0f}" if cost_per_vmaf else "-",
+            "cost_per_gb_saved": f"${cost_per_gb:,.2f}" if gb_saved > 0 else "- (baseline)",
         })
 
     return rows
@@ -803,7 +803,7 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
             "vmaf_avg": p["vmaf_avg"],
             "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
             "bdrate_value": bdrate,
-            "compression_ratio": f"{cr:.1f}x" if cr else "—",
+            "compression_ratio": f"{cr:.1f}x" if cr else "-",
             "compression_ratio_value": cr,
             "rank": 0,
         })
@@ -816,7 +816,7 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
         r["rank"] = i + 1
     for r in rows:
         if r["rank"] == 0:
-            r["rank"] = "—"
+            r["rank"] = "-"
 
     existing = {r["name"] for r in rows}
     for p in config["providers"]:
@@ -824,12 +824,68 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
             rows.append({
                 "name": p["name"],
                 "vmaf_avg": None,
-                "bdrate": "—",
-                "compression_ratio": "—",
-                "rank": "—",
+                "bdrate": "-",
+                "compression_ratio": "-",
+                "rank": "-",
             })
 
     return {"rows": rows, "n_combos": len(common_combos)}
+
+
+def build_per_vertical_bdrate(all_results: list[dict], clips: list[dict], config: dict) -> dict:
+    """BD-Rate vs Vidaio, grouped by (codec, vertical).
+
+    Pass full `all_results` (not pre-filtered) so we can also surface providers
+    that *failed to converge* in a given vertical.
+    """
+    provider_names = build_provider_name_map(config)
+    clip_vertical = {c["clip"]: c["vertical"] for c in clips}
+
+    out: dict = {}
+    for codec in ("h265", "av1"):
+        codec_rows = [r for r in all_results if r.get("codec") == codec]
+        by_vert_all = defaultdict(list)
+        for r in codec_rows:
+            v = clip_vertical.get(r["clip"])
+            if v:
+                by_vert_all[v].append(r)
+
+        per_vert = {}
+        for vert, rows_all in by_vert_all.items():
+            converged_rows = [r for r in rows_all if r.get("converged")]
+            by_clip_prov = defaultdict(lambda: defaultdict(list))
+            for r in converged_rows:
+                by_clip_prov[r["clip"]][r["provider"]].append(r)
+
+            bdrates_by_provider = defaultdict(list)
+            for clip, provs in by_clip_prov.items():
+                ref_points = provs.get("vidaio", [])
+                if len(ref_points) < 2:
+                    continue
+                for pid, points in provs.items():
+                    if pid == "vidaio" or len(points) < 2:
+                        continue
+                    bd = compute_bdrate(ref_points, points)
+                    if bd is not None:
+                        bdrates_by_provider[pid].append(bd)
+
+            providers_in_vertical = {r["provider"] for r in rows_all}
+            converged_providers = {r["provider"] for r in converged_rows}
+            failed = providers_in_vertical - converged_providers
+
+            per_vert[vert] = {
+                "bdrate": {
+                    provider_names.get(pid, pid): sum(v) / len(v)
+                    for pid, v in bdrates_by_provider.items()
+                },
+                "n_clips": {
+                    provider_names.get(pid, pid): len(v)
+                    for pid, v in bdrates_by_provider.items()
+                },
+                "failed_providers": [provider_names.get(pid, pid) for pid in sorted(failed)],
+            }
+        out[codec] = per_vert
+    return out
 
 
 def build_providers_context(config: dict) -> list[dict]:
@@ -844,7 +900,7 @@ def build_providers_context(config: dict) -> list[dict]:
             "codec_selection": "Full control",
             "expertise": "High",
             "optimization_process": "Binary search over CRF, measure VMAF after each encode",
-            "iteration_required": "Yes — ~5-6 encodes per clip",
+            "iteration_required": "Yes - ~5-6 encodes per clip",
             "sdk": "bitmovin-api-sdk (Python)",
             "auth_setup": "API key",
             "job_complexity": "Complex (input → encoding → stream → codec config → muxing → start)",
@@ -876,7 +932,7 @@ def build_providers_context(config: dict) -> list[dict]:
             "codec_selection": "Full control",
             "expertise": "High",
             "optimization_process": "Binary search over QVBR level, measure VMAF after each encode",
-            "iteration_required": "Yes — ~3-5 encodes per clip",
+            "iteration_required": "Yes - ~3-5 encodes per clip",
             "sdk": "boto3",
             "auth_setup": "IAM role + endpoint discovery",
             "job_complexity": "Moderate (job JSON with nested settings)",
@@ -907,8 +963,8 @@ def build_providers_context(config: dict) -> list[dict]:
             "quality_control": "Direct VMAF targeting",
             "codec_selection": "Full control",
             "expertise": "Low",
-            "optimization_process": "Single encode — provider targets VMAF directly",
-            "iteration_required": "No — 1 encode per clip",
+            "optimization_process": "Single encode - provider targets VMAF directly",
+            "iteration_required": "No - 1 encode per clip",
             "sdk": "None (web UI)",
             "auth_setup": "Web UI account",
             "job_complexity": "Manual upload via web UI",
@@ -924,7 +980,7 @@ def build_providers_context(config: dict) -> list[dict]:
             "codec_selection": "Full control",
             "expertise": "Medium",
             "optimization_process": "Binary search over quality 1-5, measure VMAF after each encode",
-            "iteration_required": "Yes — ~2-3 encodes per clip",
+            "iteration_required": "Yes - ~2-3 encodes per clip",
             "sdk": "zencoder (Python)",
             "auth_setup": "API key",
             "job_complexity": "Simple (POST with input + outputs)",
@@ -991,6 +1047,8 @@ def build_context(config: dict, report_dir: Path) -> dict:
             stats[f"{codec}_bdrate_second"] = gaps[0]
             stats[f"{codec}_bdrate_worst"] = gaps[-1]
 
+    per_vertical_bdrate = build_per_vertical_bdrate(all_results, clips, config)
+
     proj = config.get("projection", {})
     num_videos = proj.get("num_videos", 1_000_000)
     duration_s = proj.get("duration_s", 60)
@@ -1018,6 +1076,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "vertical_data": build_vertical_data(results, clips),
         "speed_summary": build_speed_summary(jsonl_events, config),
         "pricing": build_pricing_data(pricing_rows, jsonl_events, config),
+        "per_vertical_bdrate": per_vertical_bdrate,
         "storage_projection": build_storage_projection(comparable_results, clips, config),
         "tco_scenario": tco_scenario,
         "tco": build_tco(comparable_results, pricing_rows, config),

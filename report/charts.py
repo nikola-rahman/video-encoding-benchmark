@@ -191,7 +191,7 @@ def plot_placeholder(title, out_path):
 
 
 def gen_aggregate_rd(results, config, figures_dir):
-    """Figure 1.1 — Average bitrate by VMAF target, one subplot per codec."""
+    """Figure 1.1 - Average bitrate by VMAF target, one subplot per codec."""
     benchmark_codecs = sorted(config.get("codecs", []))
     codec_labels = {"av1": "AV1", "h265": "H.265"}
 
@@ -287,7 +287,7 @@ def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
 
 
 def gen_codec_rd(results, config, figures_dir):
-    """Figures 4.x — Per-codec RD: median+IQR + per-clip lines + X for failed attempts."""
+    """Figures 4.x - Per-codec RD: median+IQR + per-clip lines + X for failed attempts."""
     targets = config.get("vmaf_targets", [85, 89, 93])
 
     for codec in config.get("codecs", []):
@@ -303,7 +303,7 @@ def gen_codec_rd(results, config, figures_dir):
 
         out_path = figures_dir / f"aggregate_rd_{codec}.png"
         if not by_conv and not by_failed:
-            plot_placeholder(f"Rate-Distortion — {codec_label} (no data)", out_path)
+            plot_placeholder(f"Rate-Distortion - {codec_label} (no data)", out_path)
             continue
 
         fig, ax = plt.subplots(figsize=(11, 7))
@@ -311,7 +311,7 @@ def gen_codec_rd(results, config, figures_dir):
 
         ax.set_xlabel("Bitrate (kbps)")
         ax.set_ylabel("VMAF (harmonic mean)")
-        ax.set_title(f"Rate-Distortion — {codec_label}")
+        ax.set_title(f"Rate-Distortion - {codec_label}")
         ax.set_xscale("log")
         ax.legend(fontsize=10, loc="lower right")
         ax.grid(True, alpha=0.3, which="both")
@@ -361,7 +361,7 @@ def gen_vertical_rd(results, clips, config, figures_dir):
             failure_notes = _plot_rd_with_failed(ax, by_conv, by_failed, config)
             ax.set_xlabel("Bitrate (kbps)")
             ax.set_ylabel("VMAF (harmonic mean)")
-            ax.set_title(f"RD — {codec_label}, {v['name']}")
+            ax.set_title(f"RD - {codec_label}, {v['name']}")
             ax.set_xscale("log")
             ax.legend(fontsize=10, loc="lower right")
             ax.grid(True, alpha=0.3, which="both")
@@ -386,19 +386,19 @@ def gen_vertical_rd(results, clips, config, figures_dir):
 
 
 def gen_per_clip_rd(results, config, figures_dir):
-    """Appendix A — Per-clip RD curves."""
+    """Appendix A - Per-clip RD curves."""
     by_clip = defaultdict(lambda: defaultdict(list))
     for r in results:
         pname = provider_name(r["provider"], config)
         by_clip[r["clip"]][pname].append(r)
 
     for clip_name, providers in by_clip.items():
-        plot_rd_curves(providers, config, f"RD — {clip_name}",
+        plot_rd_curves(providers, config, f"RD - {clip_name}",
                        figures_dir / f"rd_per_clip_{clip_name}.png")
 
 
 def gen_storage_savings_bar(results, config, figures_dir):
-    """Figure 1.2 / 5.1 — File size at VMAF target."""
+    """Figure 1.2 / 5.1 - File size at VMAF target."""
     from report.generate import interpolate_metric_at_vmaf, build_provider_name_map
     vmaf_target = config.get("vmaf_transparent", VMAF_TRANSPARENT)
     benchmark_codecs = set(config.get("codecs", []))
@@ -484,7 +484,7 @@ def gen_bdrate_bars(results, config, figures_dir):
                         f"{val:+.1f}%", va="center", fontsize=9)
             ax.axvline(x=0, color="black", linewidth=0.8)
             ax.set_xlabel("BD-Rate (%)")
-            ax.set_title(f"BD-Rate — {codec_label} (lower is better)")
+            ax.set_title(f"BD-Rate - {codec_label} (lower is better)")
             ax.invert_yaxis()
             fig.tight_layout()
             fig.savefig(figures_dir / f"bdrate_bar_{codec}.png")
@@ -493,7 +493,7 @@ def gen_bdrate_bars(results, config, figures_dir):
 
 
 def gen_si_ti_scatter(clips, config, figures_dir):
-    """Figure 3.2 — SI vs TI scatter."""
+    """Figure 3.2 - SI vs TI scatter."""
     palette = ["#E69F00", "#56B4E9", "#009E73", "#D55E00", "#0072B2", "#CC79A7"]
     vertical_ids = [v["id"] for v in config.get("verticals", [])]
     vertical_colors = {vid: palette[i % len(palette)] for i, vid in enumerate(vertical_ids)}
@@ -523,7 +523,7 @@ def gen_si_ti_scatter(clips, config, figures_dir):
 
 
 def gen_vmaf_percentiles(results, config, figures_dir):
-    """Figure 6.1 — VMAF percentile comparison."""
+    """Figure 6.1 - VMAF percentile comparison."""
     benchmark_codecs = set(config.get("codecs", []))
     by_provider = defaultdict(lambda: {"mean": [], "min": [], "p01": [], "p05": []})
     for r in results:
@@ -567,7 +567,7 @@ def gen_vmaf_percentiles(results, config, figures_dir):
 
 
 def gen_encoding_speed(encoding_times, config, figures_dir):
-    """Figure 10.1 — Encoding speed bar chart."""
+    """Figure 10.1 - Encoding speed bar chart."""
     by_provider = defaultdict(list)
     for r in encoding_times:
         if r.get("encode_time_s") and r.get("clip_duration_s"):
@@ -588,7 +588,7 @@ def gen_encoding_speed(encoding_times, config, figures_dir):
 
 
 def gen_tco_stacked(results, pricing_rows, config, figures_dir):
-    """Figure 9.1 — TCO stacked bar."""
+    """Figure 9.1 - TCO stacked bar."""
     from report.generate import build_tco
     benchmark_codecs = set(config.get("codecs", []))
     comparable = [r for r in results if r.get("codec") in benchmark_codecs]
@@ -623,7 +623,7 @@ def gen_tco_stacked(results, pricing_rows, config, figures_dir):
 
 
 def gen_codec_comparison(results, config, figures_dir):
-    """Figure 4.3.1 — AV1 vs H.265 overlay using median curves per provider/codec."""
+    """Figure 4.3.1 - AV1 vs H.265 overlay using median curves per provider/codec."""
     codecs = config.get("codecs", [])
     if len(codecs) < 2:
         return
@@ -661,7 +661,7 @@ def gen_codec_comparison(results, config, figures_dir):
 
     ax.set_xlabel("Median Bitrate (kbps)")
     ax.set_ylabel("Median VMAF (harmonic mean)")
-    ax.set_title("AV1 vs. H.265 — Codec Comparison")
+    ax.set_title("AV1 vs. H.265 - Codec Comparison")
     ax.set_xscale("log")
     ax.legend(fontsize=8, ncol=2)
     ax.grid(True, alpha=0.3, which="both")
@@ -678,7 +678,7 @@ def gen_codec_comparison(results, config, figures_dir):
 
 
 def gen_perframe_traces(perframe, clips, config, figures_dir):
-    """Figures 6.2, 6.3 — Per-frame VMAF traces for easy and hard clips."""
+    """Figures 6.2, 6.3 - Per-frame VMAF traces for easy and hard clips."""
     # Sort clips by TI to find easy (low TI) and hard (high TI)
     by_ti = sorted([c for c in clips if c.get("ti")], key=lambda c: c["ti"])
     if not by_ti:
@@ -707,7 +707,7 @@ def gen_perframe_traces(perframe, clips, config, figures_dir):
 
         ax.set_xlabel("Frame")
         ax.set_ylabel("VMAF Score")
-        ax.set_title(f"Per-Frame VMAF — {title_suffix}")
+        ax.set_title(f"Per-Frame VMAF - {title_suffix}")
         ax.legend(fontsize=9)
         ax.set_ylim(bottom=60, top=100)
         add_vmaf_lines(ax)
@@ -718,7 +718,7 @@ def gen_perframe_traces(perframe, clips, config, figures_dir):
 
 
 def gen_consistency_matrix(perframe, clips, config, figures_dir):
-    """Figure 6.4 — Quality consistency matrix (sparkline grid)."""
+    """Figure 6.4 - Quality consistency matrix (sparkline grid)."""
     clip_names = sorted(set(r["clip"] for r in perframe))
     provider_names_list = sorted(set(provider_name(r["provider"], config) for r in perframe))[:5]
 
@@ -757,7 +757,7 @@ def gen_consistency_matrix(perframe, clips, config, figures_dir):
                 short_name = clip.split("_")[0]
                 ax.set_ylabel(short_name, fontsize=7, rotation=0, ha="right", va="center")
 
-    fig.suptitle("Quality Consistency Matrix — Per-Frame VMAF", fontsize=12)
+    fig.suptitle("Quality Consistency Matrix - Per-Frame VMAF", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(figures_dir / "consistency_matrix.png")
     plt.close(fig)
@@ -765,13 +765,13 @@ def gen_consistency_matrix(perframe, clips, config, figures_dir):
 
 
 def gen_iframe_charts(iframe_data, config, figures_dir):
-    """Figures 7.1, 7.2 — I-frame count and bit allocation."""
+    """Figures 7.1, 7.2 - I-frame count and bit allocation."""
     by_provider = defaultdict(list)
     for r in iframe_data:
         pname = provider_name(r["provider"], config)
         by_provider[pname].append(r)
 
-    # Figure 7.1 — I-frame count per minute
+    # Figure 7.1 - I-frame count per minute
     labels, values = [], []
     for pname in sorted(by_provider.keys()):
         rows = by_provider[pname]
@@ -788,7 +788,7 @@ def gen_iframe_charts(iframe_data, config, figures_dir):
              "I-Frames per Minute", "I-Frames / min",
              figures_dir / "iframe_count.png")
 
-    # Figure 7.2 — Bit allocation (I-frame % vs inter-frame %)
+    # Figure 7.2 - Bit allocation (I-frame % vs inter-frame %)
     fig, ax = plt.subplots(figsize=(9, max(4, len(by_provider) * 0.8)))
     labels_sorted = sorted(by_provider.keys())
     iframe_pcts = []
@@ -814,7 +814,7 @@ def gen_iframe_charts(iframe_data, config, figures_dir):
 
 
 def gen_ease_vs_efficiency(results, config, figures_dir):
-    """Figure 8.1 — Ease of use vs compression efficiency scatter."""
+    """Figure 8.1 - Ease of use vs compression efficiency scatter."""
     from report.generate import interpolate_metric_at_vmaf
     vmaf_target = config.get("vmaf_transparent", 93)
     benchmark_codecs = set(config.get("codecs", []))
@@ -855,7 +855,7 @@ def gen_ease_vs_efficiency(results, config, figures_dir):
 
 
 def gen_breakeven(results, pricing_rows, config, figures_dir):
-    """Figure 9.2 — Break-even analysis."""
+    """Figure 9.2 - Break-even analysis."""
     from report.generate import interpolate_metric_at_vmaf
     vmaf_target = config.get("vmaf_transparent", 93)
     benchmark_codecs = set(config.get("codecs", []))
@@ -921,7 +921,7 @@ def gen_breakeven(results, pricing_rows, config, figures_dir):
 
 
 def gen_rate_control_accuracy(results, config, figures_dir):
-    """Figure 7.3 — Requested quality vs actual VMAF."""
+    """Figure 7.3 - Requested quality vs actual VMAF."""
     # Map quality settings to a numeric "requested quality" scale
     quality_map = {
         "crf20": 80, "crf22": 78, "crf25": 75, "crf26": 74, "crf30": 70,
@@ -967,7 +967,7 @@ def gen_rate_control_accuracy(results, config, figures_dir):
 
 
 def gen_content_gallery(config, figures_dir):
-    """Content gallery — one thumbnail per vertical from report/assets/thumbs."""
+    """Content gallery - one thumbnail per vertical from report/assets/thumbs."""
     import matplotlib.image as mpimg
 
     thumbs_dir = REPORT_DIR / "assets" / "thumbs"
@@ -1128,8 +1128,8 @@ def generate_all(config_path=DEFAULT_CONFIG):
         gen_perframe_traces(perframe, clips, config, figures_dir)
         gen_consistency_matrix(perframe, clips, config, figures_dir)
     else:
-        plot_placeholder("Per-Frame VMAF — Easy Clip", figures_dir / "perframe_easy.png")
-        plot_placeholder("Per-Frame VMAF — Hard Clip", figures_dir / "perframe_hard.png")
+        plot_placeholder("Per-Frame VMAF - Easy Clip", figures_dir / "perframe_easy.png")
+        plot_placeholder("Per-Frame VMAF - Hard Clip", figures_dir / "perframe_hard.png")
         plot_placeholder("Quality Consistency Matrix", figures_dir / "consistency_matrix.png")
 
     if iframe_data:
