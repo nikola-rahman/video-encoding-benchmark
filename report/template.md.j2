@@ -5,13 +5,6 @@
 > ![{{ caption }}](figures/{{ name }}.png)
 {%- endmacro %}
 
-{%- macro provider_summary_table(codec, summary) %}
-| Provider | Avg VMAF (median bitrate) | Avg Bitrate at VMAF {{ vmaf_transparent }} | Avg File Size at VMAF {{ vmaf_transparent }} | BD-Rate vs. Best | Avg Compression Ratio |
-|----------|--------------------------|------------------------|--------------------------|-----------------|----------------------|
-{% for p in summary | sort(attribute='name') %}| {{ p.name }} | {{ p.vmaf_avg | d("—") }} | {{ p.bitrate_at_target | d("—") }} | {{ p.filesize_at_target | d("—") }} | {{ p.bdrate | d("—") }} | {{ p.compression_ratio | d("—") }} |
-{% endfor %}
-{%- endmacro %}
-
 {%- macro results_table(rows) %}
 | Clip | Provider | Bitrate (kbps) | File Size (MB) | VMAF Mean | VMAF Min | VMAF P1 | Compression Ratio |
 |------|----------|---------------|----------------|-----------|----------|---------|-------------------|
@@ -182,8 +175,6 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 {{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 — Aggregate RD Curves, " ~ codec_label) }}
 *All providers, {{ codec_label }} encoding, averaged across all test clips. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}).*
-
-{{ provider_summary_table(codec, codec_summary[codec]) }}
 
 {{ figure("bdrate_bar_" ~ codec, "Figure " ~ sec_base ~ ".2 — BD-Rate Summary, " ~ codec_label) }}
 *Percentage bitrate difference relative to the most efficient provider. Negative = saves bitrate at equivalent quality.*
