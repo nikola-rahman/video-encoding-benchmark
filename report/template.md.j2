@@ -200,12 +200,8 @@ This section translates rate-distortion data into the metrics that storage-cost 
 
 ### Storage cost projection
 
-**Scenario:** {{ "{:,}".format(storage_projection.num_videos) }} videos × {{ storage_projection.duration_s }}s of representative 1080p source (~{{ storage_projection.source_bitrate_kbps }} kbps source ≈ {{ "%.1f" | format(storage_projection.source_size_mb) }} MB per video). Each provider's mean measured compression ratio at each VMAF target (computed across the (clip, target) combinations covered by all providers for that codec) is applied to the representative source. Annual cost at S3 rate of ${{ storage_cost_per_gb_month }}/GB/mo.
-
-| Provider | Codec | VMAF 85 (TB / $/yr) | VMAF 89 (TB / $/yr) | VMAF 93 (TB / $/yr) |
-|----------|-------|---------------------|---------------------|---------------------|
-{% for row in storage_projection.formatted_rows %}{{ row }}
-{% endfor %}
+{{ figure("storage_projection", "Figure 5.1 — Annual Storage Cost") }}
+*{{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) encoded at VMAF {{ storage_projection.target_vmaf | int }}, then stored at S3 rate ${{ storage_projection.cost_per_gb_month }}/GB/mo. Per-vertical so content-type effects don't average out.*
 
 ### Quality floor guarantee
 

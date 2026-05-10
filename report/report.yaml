@@ -12,10 +12,10 @@ storage_cost_per_gb_month: 0.023
 
 # Scenario for storage cost projections
 projection:
-  num_videos: 1000000
-  duration_s: 60
+  hours: 1000
   resolution: "1080p"
-  source_bitrate_kbps: 5000  # representative 1080p source bitrate
+  source_bitrate_kbps: 5000
+  storage_target_vmaf: 93
 
 # Provider display names (alphabetical order in all tables)
 providers:

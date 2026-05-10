@@ -1098,6 +1098,69 @@ def gen_content_gallery(config, figures_dir):
     print(f"  content_gallery.png")
 
 
+def gen_storage_projection(results, clips, config, figures_dir):
+    """Storage cost chart per vertical at fixed VMAF target."""
+    from report.generate import build_storage_projection
+    proj = build_storage_projection(results, clips, config)
+    by_vertical = proj["by_vertical"]
+    if not by_vertical:
+        return
+
+    # Baseline: cost of storing the raw source without re-encoding
+    source_bytes = proj["source_bitrate_kbps"] * 1000 * (proj["hours"] * 3600) / 8
+    baseline_gb = source_bytes / (1024 ** 3)
+    baseline_cost = baseline_gb * proj["cost_per_gb_month"] * 12
+    baseline_tb = baseline_gb / 1024
+
+    vertical_order = [v["id"] for v in config.get("verticals", [])]
+    vertical_names = {v["id"]: v["name"] for v in config.get("verticals", [])}
+    vids = [v for v in vertical_order if v in by_vertical]
+
+    import math
+    n = len(vids)
+    cols = math.ceil(math.sqrt(n))
+    rows = math.ceil(n / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 4.5 * rows), squeeze=False)
+
+    for i, vid in enumerate(vids):
+        ax = axes[i // cols][i % cols]
+        entries = sorted(by_vertical[vid], key=lambda e: (e["provider"], e["codec"]))
+        labels = [f"{e['provider']}\n{e['codec']}" for e in entries]
+        costs = [e["annual_cost"] for e in entries]
+        colors = [get_color(e["provider"]) for e in entries]
+        bars = ax.bar(range(len(entries)), costs, color=colors, edgecolor="white", linewidth=0.5)
+        for bar, e in zip(bars, entries):
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                    f"${e['annual_cost']:,.0f}\n({e['total_tb']:.1f} TB)",
+                    ha="center", va="bottom", fontsize=8)
+        ax.axhline(y=baseline_cost, color="#888", linestyle="--", linewidth=1.2)
+        ax.text(len(entries) - 0.5, baseline_cost,
+                f"  no re-encoding: ${baseline_cost:,.0f} ({baseline_tb:.1f} TB)",
+                color="#444", fontsize=8, va="center", ha="right",
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white",
+                          edgecolor="#bbb", alpha=0.9))
+        ax.set_xticks(range(len(entries)))
+        ax.set_xticklabels(labels, fontsize=8)
+        ax.set_title(vertical_names.get(vid, vid), fontweight="bold")
+        ax.set_ylabel("Annual S3 cost ($)")
+        ax.grid(axis="y", alpha=0.3)
+        if costs:
+            ax.set_ylim(0, max(max(costs), baseline_cost) * 1.3)
+
+    for j in range(len(vids), rows * cols):
+        axes[j // cols][j % cols].set_visible(False)
+
+    fig.suptitle(
+        f"Storage cost: {proj['hours']:,} hours of {proj['source_bitrate_kbps']} kbps source "
+        f"at VMAF {int(proj['target_vmaf'])} (S3 ${proj['cost_per_gb_month']}/GB/mo)",
+        fontsize=12,
+    )
+    fig.tight_layout()
+    fig.savefig(figures_dir / "storage_projection.png")
+    plt.close(fig)
+    print(f"  storage_projection.png")
+
+
 # ── Main ─────────────────────────────────────────────────────────
 
 
@@ -1134,6 +1197,7 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_encoding_speed(encoding_times, config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
     gen_codec_comparison(results, config, figures_dir)
+    gen_storage_projection(results, clips, config, figures_dir)
 
     # Charts from extended data (per-frame VMAF, iframe)
     perframe_path = report_dir / config["data"].get("perframe_vmaf", "data/perframe_vmaf.csv")
