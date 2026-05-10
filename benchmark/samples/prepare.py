@@ -49,7 +49,7 @@ def prepare_video(input_path: Path, output_path: Path, trim: dict | None = None)
         cmd += ["-t", str(trim["duration"])]
 
     cmd += [
-        "-vf", "scale=iw*sar:ih,setsar=1:1,setpts=PTS-STARTPTS",
+        "-vf", "scale=ceil(iw*sar/2)*2:ceil(ih/2)*2,setsar=1:1,setpts=PTS-STARTPTS",
         "-c:v", "libx264",
         "-crf", "18",
         "-preset", "slow",
