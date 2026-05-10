@@ -150,7 +150,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 {% for p in providers | sort(attribute='name') %}| {{ p.name }} | {{ p.rate_control }} | {{ p.quality_param }} | {{ p.codec_support }} | {{ "Yes" if p.blackbox else "No" }} |
 {% endfor %}
 
-**Fairness statement:** Each provider was configured to produce the best possible quality for a given file size. For providers with quality controls, multiple encoding passes were performed at different quality levels to map the full rate-distortion curve. For providers without quality controls, the single output represents the provider's best-effort encoding.
+**Fairness statement:** Each provider was configured to produce the smallest possible file size at a given target quality (VMAF). For providers with quality controls, a binary search over each provider's quality parameter finds the setting that hits each VMAF target. For providers without quality controls, the single output represents the provider's best-effort encoding.
 
 **Configurable providers:** For each clip, a binary search (with interpolation) over each provider's quality parameter finds the setting that hits target VMAF scores ({{ vmaf_targets | join(', ') }}). This produces matched-quality data points for direct comparison.
 
