@@ -231,7 +231,7 @@ class MediaConvertProvider(Provider):
     def _build_codec_settings(codec: str, qvbr_level: float, max_bitrate: int) -> dict:
         """Build codec settings using QVBR with fine-tune."""
         level = int(qvbr_level)
-        fine_tune = round(qvbr_level - level, 2)
+        fine_tune = qvbr_level - level
 
         qvbr_settings = {"QvbrQualityLevel": level}
         if fine_tune != 0:
