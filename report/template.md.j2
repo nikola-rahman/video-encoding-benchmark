@@ -230,24 +230,12 @@ Mean VMAF hides transient quality drops. A file scoring VMAF 95 overall but drop
 
 ---
 
-## 7. Encoder Behavior Deep Dive
-
-### 7.1 GOP Structure Analysis
-
-Streaming-optimized encoders typically use short GOPs (2-4 seconds) with frequent I-frames to enable segment-based adaptive switching. For single-file delivery, these additional I-frames are not required.
-
-{{ figure("iframe_count", "Figure 7.1 — I-Frame Count per Minute") }}
-*Average I-frames per minute of encoded video, by provider. Fewer I-frames = more bits available for quality.*
-
-{{ figure("bit_allocation", "Figure 7.2 — Bit Allocation: I-Frames vs. P/B-Frames") }}
-*For a representative clip: percentage of total bits allocated to I-frames vs. inter-frames.*
-
-### 7.2 Rate Control Accuracy
+## 7. Rate Control Accuracy
 
 For providers that accept quality targets: how well does the encoder hit the requested quality level?
 
-{{ figure("rate_control_accuracy", "Figure 7.3 — Requested vs. Actual Quality") }}
-*Scatter plot of requested CRF/QVBR level vs. actual output VMAF. Points close to the trend line indicate predictable quality control.*
+{{ figure("rate_control_accuracy", "Figure 7.1 — Requested vs. Actual Quality") }}
+*Scatter plot of target VMAF vs. actual measured VMAF, per provider. Points on the diagonal hit the target exactly; below the diagonal undershoots, above overshoots.*
 
 ---
 
@@ -399,16 +387,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ## Appendices
 
-### Appendix A: Per-Clip Rate-Distortion Curves
-
-One RD chart per test clip, showing all providers. This is the full evidence base — every aggregate claim can be verified by examining individual clips.
-
-{% for c in clips %}
-{{ figure("rd_per_clip_" ~ c.clip, "Figure A." ~ loop.index ~ " — " ~ c.clip) }}
-
-{% endfor %}
-
-### Appendix B: Per-Clip Data Tables
+### Appendix A: Per-Clip Data Tables
 
 Complete data for every clip × provider × rendition combination.
 
@@ -417,7 +396,7 @@ Complete data for every clip × provider × rendition combination.
 {% for r in all_results %}| {{ r.clip }} | {{ r.provider }} | {{ r.codec }} | {{ r.quality_setting }} | {{ "%.1f" | format(r.bitrate_kbps) }} | {{ r.file_size_bytes }} | {{ "%.1f" | format(r.vmaf_harmonic_mean) }} | {{ "%.1f" | format(r.vmaf_min) }} | {{ "%.1f" | format(r.vmaf_p01) }} | {{ "%.1f" | format(r.vmaf_p05) }} | {{ "%.1f" | format(r.compression_ratio) }} |
 {% endfor %}
 
-### Appendix C: Exact Encoding Configuration
+### Appendix B: Exact Encoding Configuration
 
 Exact API calls and SDK invocations used for each provider.
 {% for p in providers | sort(attribute='name') %}
@@ -429,7 +408,7 @@ Exact API calls and SDK invocations used for each provider.
 ```
 {% endfor %}
 
-### Appendix D: BD-Rate Computation Methodology
+### Appendix C: BD-Rate Computation Methodology
 
 **Definition:** Bjontegaard Delta Rate (BD-Rate) measures the average percentage difference in bitrate between two rate-distortion curves at equivalent quality levels (Bjontegaard, 2001).
 
@@ -439,14 +418,14 @@ Exact API calls and SDK invocations used for each provider.
 
 **Edge cases:** Black-box providers with a single data point are excluded from BD-Rate computation.
 
-### Appendix E: Test Content Source Details
+### Appendix D: Test Content Source Details
 
 | Clip | SHA-256 | Source URL | License | Resolution | Frame Count | Pixel Format |
 |------|---------|-----------|---------|------------|-------------|--------------|
 {% for c in clips %}| {{ c.clip }} | {{ c.sha256 | d("TBD") }} | {{ c.source_url | d("TBD") }} | {{ c.license }} | {{ c.resolution }} | {{ c.frame_count | d("TBD") }} | {{ c.pixel_format | d("TBD") }} |
 {% endfor %}
 
-### Appendix F: Glossary
+### Appendix E: Glossary
 
 | Term | Definition |
 |------|-----------|
