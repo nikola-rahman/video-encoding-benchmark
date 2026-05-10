@@ -64,19 +64,19 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 
 All gaps below are **BD-Rate vs Vidaio** - extra bits needed to match Vidaio's quality.
 
-1. **Vidaio leads on every vertical it converges on; the lead is content-dependent.**
+**1. Vidaio leads on every vertical it passed; the lead is content-dependent.**
 
-   | Vertical | H.265 (Bitmovin / MC / Zencoder) | AV1 (Bitmovin / MC) |
-   |----------|---------------------------------:|--------------------:|
-   {% for vert in ["ecommerce", "ugc", "security"] -%}
-   {%- set h = per_vertical_bdrate.h265.get(vert, {}).get("bdrate", {}) -%}
-   {%- set a = per_vertical_bdrate.av1.get(vert, {}).get("bdrate", {}) -%}
-   | {{ {"ecommerce": "E-Commerce", "ugc": "UGC", "security": "Security"}[vert] }} | +{{ "%.0f" | format(h.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(h.get("AWS MediaConvert", 0)) }}% / +{{ "%.0f" | format(h.get("Brightcove Zencoder", 0)) }}% | {% if a.get("Bitmovin", 0) >= 0 %}+{% endif %}{{ "%.0f" | format(a.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(a.get("AWS MediaConvert", 0)) }}% |
-   {% endfor %}
+| Vertical | H.265 (Bitmovin / MC / Zencoder) | AV1 (Bitmovin / MC) |
+|----------|---------------------------------:|--------------------:|
+{% for vert in ["ecommerce", "ugc", "security"] -%}
+{%- set h = per_vertical_bdrate.h265.get(vert, {}).get("bdrate", {}) -%}
+{%- set a = per_vertical_bdrate.av1.get(vert, {}).get("bdrate", {}) -%}
+| {{ {"ecommerce": "E-Commerce", "ugc": "UGC", "security": "Security"}[vert] }} | +{{ "%.0f" | format(h.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(h.get("AWS MediaConvert", 0)) }}% / +{{ "%.0f" | format(h.get("Brightcove Zencoder", 0)) }}% | {% if a.get("Bitmovin", 0) >= 0 %}+{% endif %}{{ "%.0f" | format(a.get("Bitmovin", 0)) }}% / +{{ "%.0f" | format(a.get("AWS MediaConvert", 0)) }}% |
+{% endfor %}
 
-2. **Archive content: only Vidaio converged.** Bitmovin, AWS MediaConvert, and Brightcove Zencoder all hit 0% convergence on the 5 archive clips - their encoders topped out near VMAF 58 on grainy historical footage. Archive is excluded from the apples-to-apples tables below.
+**2. Archive content: only Vidaio passed.** Bitmovin, AWS MediaConvert, and Brightcove Zencoder failed every archive clip - their encoders topped out near VMAF 58 on grainy historical footage and never reached the lowest target (VMAF 85). Archive is excluded from the apples-to-apples tables below.
 
-3. **AV1's gain over H.265 depends heavily on the encoder.** AV1 saves {% for name, pct in stats.av1_vs_h265_by_provider.items() %}{% if not loop.first %}, {% endif %}**{{ "%.0f" | format(pct) }}% with {{ name }}**{% endfor %}. The codec specification is the same; the realized compression is not.
+**3. AV1's gain over H.265 depends heavily on the encoder.** AV1 saves {% for name, pct in stats.av1_vs_h265_by_provider.items() %}{% if not loop.first %}, {% endif %}**{{ "%.0f" | format(pct) }}% with {{ name }}**{% endfor %}. The codec specification is the same; the realized compression is not.
 
 ### Headline findings tables
 
@@ -228,7 +228,7 @@ What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours 
 
 ### Effective cost per source minute
 
-Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to converge to a target VMAF - every pass is billed. Effective cost = sticker price × average passes to converge.
+Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to reach a target VMAF - every pass is billed. Effective cost = sticker price × average passes to reach the target.
 
 | Provider | Avg passes (H.265) | Avg passes (AV1) | Effective $/min (H.265) | Effective $/min (AV1) |
 |----------|-------------------|------------------|------------------------|----------------------|
@@ -241,7 +241,7 @@ Vidaio targets VMAF directly with a single encode. The other providers use an it
 
 ## 7. Encoding Speed
 
-Wall-clock time from job submission to a converged result, derived from search event timestamps in our run logs. Outliers are trimmed at 1.5× IQR per (provider, codec) to reduce the influence of regional queue spikes. Vidaio's number is a single-encode mean - no search loop.
+Wall-clock time from job submission to a passed result, derived from search event timestamps in our run logs. Outliers are trimmed at 1.5× IQR per (provider, codec) to reduce the influence of regional queue spikes. Vidaio's number is a single-encode mean - no search loop.
 
 | Provider | Codec | Per-pass (s) | Passes | Total to target (s) |
 |----------|-------|-------------:|-------:|-------------------:|
