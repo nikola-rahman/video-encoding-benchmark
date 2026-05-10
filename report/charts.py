@@ -310,24 +310,71 @@ def gen_codec_rd(results, config, figures_dir):
 
 
 def gen_vertical_rd(results, clips, config, figures_dir):
-    """Per-vertical per-codec RD curves."""
+    """Per-vertical per-codec RD: median+IQR band + transparent per-clip lines."""
     clip_vertical = {c["clip"]: c["vertical"] for c in clips}
+    targets = config.get("vmaf_targets", [85, 89, 93])
+
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
         for v in config.get("verticals", []):
-            by_provider = defaultdict(list)
+            by_pc = defaultdict(lambda: defaultdict(list))
             for r in results:
                 if r.get("codec") != codec:
                     continue
                 if clip_vertical.get(r["clip"]) != v["id"]:
                     continue
                 pname = provider_name(r["provider"], config)
-                by_provider[pname].append(r)
+                by_pc[pname][r["clip"]].append(r)
 
-            if by_provider:
-                plot_rd_curves(by_provider, config,
-                               f"RD — {codec_label}, {v['name']}",
-                               figures_dir / f"rd_{codec}_{v['id']}.png")
+            if not by_pc:
+                continue
+
+            fig, ax = plt.subplots(figsize=(11, 7))
+            for pname in sorted(by_pc.keys()):
+                color = get_color(pname)
+                for clip, points in by_pc[pname].items():
+                    points.sort(key=lambda p: p["bitrate_kbps"])
+                    xs = [p["bitrate_kbps"] for p in points]
+                    ys = [p["vmaf_harmonic_mean"] for p in points]
+                    ax.plot(xs, ys, color=color, alpha=0.2, linewidth=0.8,
+                            marker="o", markersize=2)
+
+                by_target = defaultdict(list)
+                for clip, points in by_pc[pname].items():
+                    for p in points:
+                        by_target[p["target_vmaf"]].append((p["bitrate_kbps"], p["vmaf_harmonic_mean"]))
+
+                med_x, med_y, lo_x, hi_x = [], [], [], []
+                for t in sorted(by_target.keys()):
+                    br = [p[0] for p in by_target[t]]
+                    vm = [p[1] for p in by_target[t]]
+                    if len(br) < 2:
+                        continue
+                    med_x.append(np.median(br))
+                    med_y.append(np.median(vm))
+                    lo_x.append(np.percentile(br, 25))
+                    hi_x.append(np.percentile(br, 75))
+
+                if med_x:
+                    ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
+                    ax.plot(med_x, med_y, color=color, linewidth=2.5,
+                            marker="o", markersize=7, label=pname,
+                            markeredgecolor="white", markeredgewidth=1)
+
+            ax.set_xlabel("Bitrate (kbps)")
+            ax.set_ylabel("VMAF (harmonic mean)")
+            ax.set_title(f"RD — {codec_label}, {v['name']}")
+            ax.set_xscale("log")
+            ax.legend(fontsize=10, loc="lower right")
+            ax.grid(True, alpha=0.3, which="both")
+            for target in targets:
+                ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
+                ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
+                        va="bottom", fontsize=8, color="gray")
+            fig.tight_layout()
+            fig.savefig(figures_dir / f"rd_{codec}_{v['id']}.png")
+            plt.close(fig)
+            print(f"  rd_{codec}_{v['id']}.png")
 
 
 def gen_per_clip_rd(results, config, figures_dir):
