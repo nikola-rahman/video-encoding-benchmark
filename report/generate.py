@@ -798,22 +798,30 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
                 bdrate = round(sum(per_clip_bdrates) / len(per_clip_bdrates), 1)
 
         cr = p["compression_ratio"]
+        is_ref = (ref_pid is not None and p["pid"] == ref_pid)
         rows.append({
             "name": p["name"],
             "vmaf_avg": p["vmaf_avg"],
             "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
             "bdrate_value": bdrate,
-            "compression_ratio": f"{cr:.1f}x" if cr else "-",
-            "compression_ratio_value": cr,
+            "is_ref": is_ref,
             "rank": 0,
         })
 
-    ranked = sorted(
-        [r for r in rows if r["compression_ratio_value"] is not None],
-        key=lambda r: -r["compression_ratio_value"],
+    # Rank by BD-Rate: the reference encoder is rank 1, then ascending bdrate_value.
+    ranked_others = sorted(
+        [r for r in rows if r.get("bdrate_value") is not None],
+        key=lambda r: r["bdrate_value"],
     )
-    for i, r in enumerate(ranked):
-        r["rank"] = i + 1
+    next_rank = 1
+    for r in rows:
+        if r.get("is_ref"):
+            r["rank"] = 1
+            next_rank = 2
+            break
+    for r in ranked_others:
+        r["rank"] = next_rank
+        next_rank += 1
     for r in rows:
         if r["rank"] == 0:
             r["rank"] = "-"
@@ -825,7 +833,6 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
                 "name": p["name"],
                 "vmaf_avg": None,
                 "bdrate": "-",
-                "compression_ratio": "-",
                 "rank": "-",
             })
 

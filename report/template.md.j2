@@ -66,16 +66,16 @@ Each table is restricted to the (clip, target VMAF) combinations covered by **al
 
 #### H.265 ({{ headline_h265.n_combos }} (clip, target) combos)
 
-| Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
-|----------|----------|-----------------|----------------------|------|
-{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.compression_ratio if p.compression_ratio else "-" }} | {{ p.rank }} |
+| Provider | Avg VMAF | BD-Rate vs. Best | Rank |
+|----------|----------|------------------|------|
+{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
 {% endfor %}
 
 #### AV1 ({{ headline_av1.n_combos }} (clip, target) combos)
 
-| Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
-|----------|----------|-----------------|----------------------|------|
-{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.compression_ratio if p.compression_ratio else "-" }} | {{ p.rank }} |
+| Provider | Avg VMAF | BD-Rate vs. Best | Rank |
+|----------|----------|------------------|------|
+{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
 {% endfor %}
 
 {{ figure("aggregate_rd", "Figure 1.1 - Aggregate Rate-Distortion Summary") }}
