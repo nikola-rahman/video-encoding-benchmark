@@ -111,14 +111,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 ### 3.1 Test Content
 
-{{ stats.n_clips }} source videos selected to represent the range of content complexity encountered in production:
-
-| Clip | Vertical | Resolution | Duration | SI | TI | Source | License |
-|------|----------|------------|----------|----|----|--------|---------|
-{% for c in clips %}| {{ c.clip }} | {{ c.vertical }} | {{ c.resolution }} | {{ c.duration_s }}s | {{ "%.1f" | format(c.si) }} | {{ "%.1f" | format(c.ti) }} | {{ c.source }} | {{ c.license }} |
-{% endfor %}
-
-**Selection criteria:** Clips were chosen to cover a diverse range of spatial and temporal complexity across each vertical. Synthetic test sequences (ITU reference clips, Blender demos) were avoided in favor of content representative of real production workloads.
+{{ stats.n_clips }} source videos across the four verticals, chosen to span a diverse range of spatial and temporal complexity. Synthetic test sequences (ITU reference clips, Blender demos) were avoided in favor of content representative of real production workloads. The content gallery and SI/TI scatter below show the corpus; per-clip provenance is in Appendix D.
 
 **Input preparation:** All source files were re-encoded to H.264 CRF 18, no audio, MP4 container. Videos longer than 120 seconds were trimmed from the start. Pixel aspect ratio is normalized to 1:1 (square pixels), so encoders that auto-rescale non-square sources produce outputs at the same dimensions as the reference and VMAF can be measured directly.
 
