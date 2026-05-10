@@ -224,7 +224,7 @@ Vidaio targets VMAF directly with a single encode. The other providers use an it
 {% for p in pricing.effective | sort(attribute='name') %}| {{ p.name }} | {{ p.iters_h265 }} | {{ p.iters_av1 }} | {{ p.effective_h265 }} | {{ p.effective_av1 }} |
 {% endfor %}
 
-**Pricing caveat:** All costs use public list pricing as of {{ config.date }}. Enterprise/volume pricing varies. AWS MediaConvert prices are computed from the published multiplier table × Professional Tier 1 base rate. Brightcove Zencoder no longer publishes a public price list (sales-only quote).
+**Pricing caveat:** All costs use public list / pay-as-you-go pricing as of {{ config.date }}. Enterprise/volume pricing varies — Brightcove Zencoder's best subscription tier is $0.020/min (100K min/mo plan), and AWS MediaConvert offers volume discounts above 100K min/region/mo. AWS MediaConvert prices are computed from the published multiplier table × Professional Tier 1 base rate.
 
 ---
 
