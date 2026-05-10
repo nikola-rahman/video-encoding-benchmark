@@ -120,7 +120,11 @@ def run(results_dir: Path, output_dir: Path):
     results = extract_results(events)
     clip_vertical = build_clip_vertical_map()
 
-    enriched = [enrich_result(r, clip_vertical) for r in results if r.get("converged")]
+    enriched = [
+        enrich_result(r, clip_vertical)
+        for r in results
+        if r.get("converged") and r["clip"] in clip_vertical
+    ]
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

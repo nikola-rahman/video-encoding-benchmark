@@ -75,11 +75,22 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 4. **Black-box providers (Mux, Cloudflare) trade configurability for simplicity.** Their single operating points {{ stats.blackbox_position_note }}
 5. **Ease of use and compression efficiency present different tradeoffs.** {{ stats.ease_efficiency_note }}
 
-### Headline findings table
+### Headline findings tables
 
-| Provider | Avg VMAF | BD-Rate vs. Best | Avg File Size | Rank |
-|----------|---------------------------|-----------------|----------------------|------|
-{% for p in headline_ranking | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.filesize_at_target if p.filesize_at_target else "—" }} | {{ p.rank }} |
+Each table is restricted to the (clip, target VMAF) combinations covered by **all providers tested for that codec**, so comparisons are apples-to-apples.
+
+#### H.265 ({{ headline_h265.n_combos }} (clip, target) combos)
+
+| Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
+|----------|----------|-----------------|----------------------|------|
+{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.compression_ratio if p.compression_ratio else "—" }} | {{ p.rank }} |
+{% endfor %}
+
+#### AV1 ({{ headline_av1.n_combos }} (clip, target) combos)
+
+| Provider | Avg VMAF | BD-Rate vs. Best | Avg Compression Ratio | Rank |
+|----------|----------|-----------------|----------------------|------|
+{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "—" }} | {{ p.bdrate if p.bdrate else "—" }} | {{ p.compression_ratio if p.compression_ratio else "—" }} | {{ p.rank }} |
 {% endfor %}
 
 {{ figure("aggregate_rd", "Figure 1.1 — Aggregate Rate-Distortion Summary") }}

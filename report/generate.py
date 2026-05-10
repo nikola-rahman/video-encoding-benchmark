@@ -559,41 +559,55 @@ def build_rec_matrix(results: list[dict], pricing_rows: list[dict], clips: list[
     return matrix
 
 
-def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
-    """Build the headline findings table with computed BD-Rate, file size at target, and rank."""
+def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dict:
+    """Build the headline findings table for one codec, restricted to the
+    common subset of (clip, target) combos covered by all providers tested
+    for this codec. Returns a dict with rows and the subset size.
+    """
     provider_names = build_provider_name_map(config)
-    vmaf_target = config.get("vmaf_transparent", 93)
+
+    codec_results = [r for r in results if r.get("codec") == codec]
+    if not codec_results:
+        return {"rows": [], "n_combos": 0}
+
+    # Find (clip, target) combos covered by all providers (in this codec)
+    combos_by_provider = defaultdict(set)
+    for r in codec_results:
+        combos_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+    if not combos_by_provider:
+        return {"rows": [], "n_combos": 0}
+    common_combos = set.intersection(*combos_by_provider.values())
+
+    # Filter to common subset
+    common = [r for r in codec_results if (r["clip"], r["target_vmaf"]) in common_combos]
+
     by_provider = defaultdict(list)
-    for r in results:
+    for r in common:
         by_provider[r["provider"]].append(r)
 
-    # Use average file size and VMAF from converged results (already at target)
     provider_data = []
     for pid, data in by_provider.items():
         vmaf_vals = [r["vmaf_harmonic_mean"] for r in data if r.get("vmaf_harmonic_mean")]
-        fs_vals = [r["file_size_bytes"] for r in data if r.get("file_size_bytes")]
+        cr_vals = [r["compression_ratio"] for r in data if r.get("compression_ratio")]
         provider_data.append({
             "pid": pid,
             "name": provider_names.get(pid, pid),
             "vmaf_avg": sum(vmaf_vals) / len(vmaf_vals) if vmaf_vals else None,
             "points": data,
-            "filesize_at_target_bytes": sum(fs_vals) / len(fs_vals) if fs_vals else None,
+            "compression_ratio": sum(cr_vals) / len(cr_vals) if cr_vals else None,
         })
 
-    # Find the best provider (smallest file at target VMAF) as BD-Rate reference
-    providers_with_fs = [p for p in provider_data if p["filesize_at_target_bytes"] is not None]
-    if providers_with_fs:
-        best = min(providers_with_fs, key=lambda p: p["filesize_at_target_bytes"])
+    providers_with_cr = [p for p in provider_data if p["compression_ratio"] is not None]
+    if providers_with_cr:
+        best = max(providers_with_cr, key=lambda p: p["compression_ratio"])
         ref_pid = best["pid"]
     else:
         ref_pid = None
 
-    # Group points by clip for per-clip BD-Rate computation
-    points_by_clip = defaultdict(lambda: defaultdict(list))  # clip -> provider -> points
-    for r in results:
+    points_by_clip = defaultdict(lambda: defaultdict(list))
+    for r in common:
         points_by_clip[r["clip"]][r["provider"]].append(r)
 
-    # Build rows with BD-Rate (per-clip, then averaged)
     rows = []
     for p in provider_data:
         bdrate = None
@@ -609,20 +623,19 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
             if per_clip_bdrates:
                 bdrate = round(sum(per_clip_bdrates) / len(per_clip_bdrates), 1)
 
-        fs = p["filesize_at_target_bytes"]
+        cr = p["compression_ratio"]
         rows.append({
             "name": p["name"],
             "vmaf_avg": p["vmaf_avg"],
             "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
-            "filesize_at_target": f"{fs / (1024*1024):.1f} MB" if fs else "—",
-            "filesize_at_target_bytes": fs,
+            "compression_ratio": f"{cr:.1f}x" if cr else "—",
+            "compression_ratio_value": cr,
             "rank": 0,
         })
 
-    # Compute rank by file size at target (smallest = rank 1)
     ranked = sorted(
-        [r for r in rows if r["filesize_at_target_bytes"] is not None],
-        key=lambda r: r["filesize_at_target_bytes"],
+        [r for r in rows if r["compression_ratio_value"] is not None],
+        key=lambda r: -r["compression_ratio_value"],
     )
     for i, r in enumerate(ranked):
         r["rank"] = i + 1
@@ -630,7 +643,6 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
         if r["rank"] == 0:
             r["rank"] = "—"
 
-    # Add providers with no results yet
     existing = {r["name"] for r in rows}
     for p in config["providers"]:
         if p["name"] not in existing:
@@ -638,11 +650,11 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
                 "name": p["name"],
                 "vmaf_avg": None,
                 "bdrate": "—",
-                "filesize_at_target": "—",
+                "compression_ratio": "—",
                 "rank": "—",
             })
 
-    return rows
+    return {"rows": rows, "n_combos": len(common_combos)}
 
 
 def build_providers_context(config: dict) -> list[dict]:
@@ -799,7 +811,8 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "verticals": config.get("verticals", []),
         "providers": providers,
         "all_results": results,
-        "headline_ranking": build_headline_ranking(comparable_results, config),
+        "headline_h265": build_headline_ranking(comparable_results, config, "h265"),
+        "headline_av1": build_headline_ranking(comparable_results, config, "av1"),
         "codec_summary": build_codec_summary(results, config),
         "vertical_data": build_vertical_data(results, clips),
         "speed_summary": build_speed_summary(encoding_times, config),
