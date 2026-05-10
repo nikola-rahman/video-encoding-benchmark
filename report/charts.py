@@ -239,23 +239,74 @@ def gen_aggregate_rd(results, config, figures_dir):
 
 
 def gen_codec_rd(results, config, figures_dir):
-    """Figures 4.x — Per-codec aggregate RD curves."""
-    blackbox_ids = {p["id"] for p in config["providers"] if p.get("blackbox")}
+    """Figures 4.x — Per-codec RD: median+IQR band + transparent per-clip lines."""
+    targets = config.get("vmaf_targets", [85, 89, 93])
+
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
-        by_provider = defaultdict(list)
+        # Group: provider -> clip -> [points]
+        by_pc = defaultdict(lambda: defaultdict(list))
         for r in results:
             if r.get("codec") != codec:
                 continue
             pname = provider_name(r["provider"], config)
-            by_provider[pname].append(r)
+            by_pc[pname][r["clip"]].append(r)
 
         out_path = figures_dir / f"aggregate_rd_{codec}.png"
-        if by_provider:
-            plot_rd_curves(by_provider, config, f"Rate-Distortion — {codec_label}",
-                           out_path, blackbox_ids)
-        else:
+        if not by_pc:
             plot_placeholder(f"Rate-Distortion — {codec_label} (no data)", out_path)
+            continue
+
+        fig, ax = plt.subplots(figsize=(11, 7))
+
+        for pname in sorted(by_pc.keys()):
+            color = get_color(pname)
+            # Per-clip thin lines
+            for clip, points in by_pc[pname].items():
+                points.sort(key=lambda p: p["bitrate_kbps"])
+                xs = [p["bitrate_kbps"] for p in points]
+                ys = [p["vmaf_harmonic_mean"] for p in points]
+                ax.plot(xs, ys, color=color, alpha=0.15, linewidth=0.8,
+                        marker="o", markersize=2)
+
+            # Median + IQR band: bin by target_vmaf
+            by_target = defaultdict(list)
+            for clip, points in by_pc[pname].items():
+                for p in points:
+                    by_target[p["target_vmaf"]].append((p["bitrate_kbps"], p["vmaf_harmonic_mean"]))
+
+            sorted_targets = sorted(by_target.keys())
+            med_x, med_y, lo_x, hi_x = [], [], [], []
+            for t in sorted_targets:
+                br = sorted(p[0] for p in by_target[t])
+                vm = sorted(p[1] for p in by_target[t])
+                if len(br) < 2:
+                    continue
+                med_x.append(np.median(br))
+                med_y.append(np.median(vm))
+                lo_x.append(np.percentile(br, 25))
+                hi_x.append(np.percentile(br, 75))
+
+            if med_x:
+                ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
+                ax.plot(med_x, med_y, color=color, linewidth=2.5,
+                        marker="o", markersize=7, label=pname,
+                        markeredgecolor="white", markeredgewidth=1)
+
+        ax.set_xlabel("Bitrate (kbps)")
+        ax.set_ylabel("VMAF (harmonic mean)")
+        ax.set_title(f"Rate-Distortion — {codec_label} (median + IQR per VMAF target, thin lines = individual clips)")
+        ax.set_xscale("log")
+        ax.legend(fontsize=10, loc="lower right")
+        ax.grid(True, alpha=0.3, which="both")
+        for target in targets:
+            ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
+            ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
+                    va="bottom", fontsize=8, color="gray")
+        fig.tight_layout()
+        fig.savefig(out_path)
+        plt.close(fig)
+        print(f"  {out_path.name}")
 
 
 def gen_vertical_rd(results, clips, config, figures_dir):
