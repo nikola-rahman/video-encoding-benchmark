@@ -13,11 +13,14 @@ load_dotenv()
 VIDEO_EXTENSIONS = {".mp4", ".ogv", ".mkv", ".webm", ".avi", ".mov"}
 
 
-def run(local_dir: Path, s3_prefix: str, force: bool = False):
+def run(local_dir: Path, s3_prefix: str, force: bool = False, ids: list[str] | None = None):
     s3 = get_s3_client()
     bucket = get_bucket()
 
     files = sorted(f for f in local_dir.iterdir() if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS)
+    if ids:
+        wanted = set(ids)
+        files = [f for f in files if f.stem in wanted]
 
     if not files:
         print(f"No video files in {local_dir}")
@@ -49,5 +52,6 @@ if __name__ == "__main__":
     parser.add_argument("dir", type=Path, help="Local directory to upload")
     parser.add_argument("prefix", help="S3 key prefix (e.g. samples/raw, samples/prepared)")
     parser.add_argument("--force", action="store_true", help="Re-upload even if file exists")
+    parser.add_argument("--id", nargs="*", help="Filter to specific clip IDs (filename stem)")
     args = parser.parse_args()
-    run(args.dir, args.prefix, args.force)
+    run(args.dir, args.prefix, args.force, args.id)
