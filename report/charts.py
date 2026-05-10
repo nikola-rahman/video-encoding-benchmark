@@ -522,34 +522,6 @@ def gen_si_ti_scatter(clips, config, figures_dir):
     print(f"  si_ti_scatter.png")
 
 
-def gen_compression_ratio_boxplot(results, config, figures_dir):
-    """Figure 5.3 — Compression ratio distribution box plot."""
-    benchmark_codecs = set(config.get("codecs", []))
-    by_provider = defaultdict(list)
-    for r in results:
-        if r.get("codec") in benchmark_codecs and r.get("compression_ratio"):
-            pname = provider_name(r["provider"], config)
-            by_provider[pname].append(r["compression_ratio"])
-
-    if not by_provider:
-        return
-
-    labels = sorted(by_provider.keys())
-    data = [by_provider[l] for l in labels]
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    bp = ax.boxplot(data, labels=labels, vert=True, patch_artist=True)
-    for patch, label in zip(bp["boxes"], labels):
-        patch.set_facecolor(get_color(label))
-        patch.set_alpha(0.7)
-    ax.set_ylabel("Compression Ratio (input size / output size)")
-    ax.set_title("Compression Ratio Distribution by Provider")
-    fig.tight_layout()
-    fig.savefig(figures_dir / "compression_ratio_boxplot.png")
-    plt.close(fig)
-    print(f"  compression_ratio_boxplot.png")
-
-
 def gen_vmaf_percentiles(results, config, figures_dir):
     """Figure 6.1 — VMAF percentile comparison."""
     benchmark_codecs = set(config.get("codecs", []))
@@ -839,54 +811,6 @@ def gen_iframe_charts(iframe_data, config, figures_dir):
     fig.savefig(figures_dir / "bit_allocation.png")
     plt.close(fig)
     print(f"  bit_allocation.png")
-
-
-def gen_quality_floor(results, config, figures_dir):
-    """Figure 5.2 — Quality floor: % of clips meeting VMAF thresholds."""
-    benchmark_codecs = set(config.get("codecs", []))
-    thresholds = [85, 90, 93, 95]
-
-    # Use one representative quality per provider (highest quality setting)
-    by_provider_clip = defaultdict(lambda: defaultdict(list))
-    for r in results:
-        if r.get("codec") not in benchmark_codecs:
-            continue
-        pname = provider_name(r["provider"], config)
-        by_provider_clip[pname][r["clip"]].append(r)
-
-    # Pick best VMAF per clip per provider
-    provider_vmafs = defaultdict(list)
-    for pname, clips_data in by_provider_clip.items():
-        for clip, rows in clips_data.items():
-            best = max(rows, key=lambda r: r.get("vmaf_harmonic_mean", 0))
-            provider_vmafs[pname].append(best.get("vmaf_harmonic_mean", 0))
-
-    labels = sorted(provider_vmafs.keys())
-    n_clips_total = {pname: len(vmafs) for pname, vmafs in provider_vmafs.items()}
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    x = np.arange(len(labels))
-    width = 0.2
-    colors_t = ["#009E73", "#56B4E9", "#E69F00", "#D55E00"]
-
-    for i, threshold in enumerate(thresholds):
-        pcts = []
-        for pname in labels:
-            vmafs = provider_vmafs[pname]
-            above = sum(1 for v in vmafs if v >= threshold)
-            pcts.append(100 * above / len(vmafs) if vmafs else 0)
-        ax.bar(x + i * width, pcts, width, label=f"≥ VMAF {threshold}", color=colors_t[i], alpha=0.85)
-
-    ax.set_xticks(x + 1.5 * width)
-    ax.set_xticklabels(labels, rotation=15, ha="right")
-    ax.set_ylabel("% of Clips Meeting Threshold")
-    ax.set_title("Quality Floor: % of Clips Meeting VMAF Thresholds")
-    ax.legend()
-    ax.set_ylim(0, 110)
-    fig.tight_layout()
-    fig.savefig(figures_dir / "quality_floor.png")
-    plt.close(fig)
-    print(f"  quality_floor.png")
 
 
 def gen_ease_vs_efficiency(results, config, figures_dir):
@@ -1188,7 +1112,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_per_clip_rd(results, config, figures_dir)
     gen_bdrate_bars(results, config, figures_dir)
     gen_si_ti_scatter(clips, config, figures_dir)
-    gen_compression_ratio_boxplot(results, config, figures_dir)
     gen_vmaf_percentiles(results, config, figures_dir)
     gen_encoding_speed(encoding_times, config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
@@ -1215,7 +1138,6 @@ def generate_all(config_path=DEFAULT_CONFIG):
         plot_placeholder("I-Frame Count per Minute", figures_dir / "iframe_count.png")
         plot_placeholder("Bit Allocation: I vs P/B Frames", figures_dir / "bit_allocation.png")
 
-    gen_quality_floor(results, config, figures_dir)
     gen_ease_vs_efficiency(results, config, figures_dir)
     gen_breakeven(results, pricing_rows, config, figures_dir)
     gen_rate_control_accuracy(results, config, figures_dir)
