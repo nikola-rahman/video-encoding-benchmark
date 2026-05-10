@@ -230,49 +230,18 @@ Vidaio targets VMAF directly with a single encode. The other providers use an it
 
 ## 7. Encoding Speed
 
-Encoding time is a secondary metric for archival workloads (typically batch-processed), but important for operational planning.
+Wall-clock time from job submission to a converged result, derived from search event timestamps in our run logs. Outliers are trimmed at 1.5× IQR per (provider, codec) to reduce the influence of regional queue spikes. Vidaio's number is a single-encode mean — no search loop.
 
-{{ figure("encoding_speed", "Figure 10.1 — Encoding Speed Comparison") }}
-*Average encoding time as a multiple of real-time. Values < 1x indicate faster-than-realtime encoding.*
-
-| Provider | Avg Encode Time (s) | Avg Speed (× real-time) | Min | Max |
-|----------|--------------------|-----------------------|-----|-----|
-{% for p in speed_summary | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.avg_time) }} | {{ "%.2f" | format(p.avg_realtime) }}x | {{ "%.1f" | format(p.min_time) }} | {{ "%.1f" | format(p.max_time) }} |
+| Provider | Codec | Per-pass (s) | Passes | Total to target (s) |
+|----------|-------|-------------:|-------:|-------------------:|
+{% for p in speed_summary | sort(attribute='name') %}| {{ p.name }} | {{ p.codec | upper }} | {{ "%.0f" | format(p.avg_per_pass_s) }} | {{ "%.1f" | format(p.avg_steps) }} | {{ "%.0f" | format(p.avg_total_s) }} |
 {% endfor %}
 
-**Caveat:** Encoding time varies with server load, region, and pricing tier. These measurements are indicative, not guaranteed.
+**Caveat:** This is end-to-end wall-clock — it includes provider queue time, file upload, encode, download, and our local VMAF measurement between iterations. It is *not* an isolated encoder-speed measurement; that's not observable from outside a cloud API. Numbers are directional and will vary with region, load, and account tier.
 
 ---
 
-## 8. Recommendations by Use Case
-{% for v in verticals %}
-
-### 8.{{ loop.index }} {{ v.name }}
-{% if v.id == "ecommerce" %}
-**What they need:** The smallest possible product video at VMAF {{ vmaf_transparent }}+ quality. Fine detail (fabric texture, product labels, text overlays) must remain sharp. Storage cost scales with millions of SKUs.
-{%- elif v.id == "ugc" %}
-**What they need:** Handle diverse, often noisy input quality. Minimize storage at acceptable quality. Pipeline simplicity matters — millions of uploads per day with minimal manual intervention.
-{%- elif v.id == "archive" %}
-**What they need:** Guaranteed quality floor at minimum file size. Long-term storage where every byte saved compounds over years and petabytes. Format longevity matters.
-{%- elif v.id == "education" %}
-**What they need:** Sharp text, code, and diagrams. Consistent quality across mixed content (slides + camera). Cost-effective hosting at millions of hours of content.
-{%- elif v.id == "security" %}
-**What they need:** 24/7 recording at minimum storage cost. Acceptable quality for identification purposes. Massive volume — hundreds of cameras × months of retention. Low-motion scenes with occasional bursts of activity.
-{%- endif %}
-
-**Recommendation:** {{ recommendations[v.id] | d("*To be written after data analysis.*") }}
-{% endfor %}
-
-### Use case recommendation matrix
-
-| Use Case | Best for Quality | Best for Simplicity | Best for Cost |
-|----------|-----------------|-------------------|--------------|
-{% for v in verticals %}| {{ v.name }} | {{ rec_matrix[v.id].quality | d("TBD") }} | {{ rec_matrix[v.id].simplicity | d("TBD") }} | {{ rec_matrix[v.id].cost | d("TBD") }} |
-{% endfor %}
-
----
-
-## 9. Limitations and Future Work
+## 8. Limitations and Future Work
 
 ### Limitations
 
@@ -294,7 +263,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 10. Conclusions
+## 9. Conclusions
 
 {{ conclusions.headline | d("*To be written after data analysis.*") }}
 

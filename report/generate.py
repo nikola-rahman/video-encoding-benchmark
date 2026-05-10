@@ -310,27 +310,89 @@ def build_vertical_data(results: list[dict], clips: list[dict]) -> dict:
     return dict(data)
 
 
-def build_speed_summary(encoding_times: list[dict], config: dict) -> list[dict]:
-    """Build encoding speed summary per provider."""
+VIDAIO_PER_PASS_S = 120.0
+
+
+def _iqr_filter(values: list[float]) -> list[float]:
+    if len(values) < 4:
+        return values
+    import statistics as _stats
+    qs = _stats.quantiles(values, n=4)
+    q1, q3 = qs[0], qs[2]
+    iqr = q3 - q1
+    lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    return [v for v in values if lo <= v <= hi]
+
+
+def build_speed_summary(events: list[dict], config: dict) -> list[dict]:
+    """Per-(provider, codec) wall-clock encoding speed from JSONL events.
+
+    Pairs each converged search_complete with its preceding search_start,
+    derives total search time and per-pass time, then trims outliers via
+    1.5× IQR. Vidaio uses a fixed measured per-pass mean (single encode).
+    """
+    from datetime import datetime as _dt
+
     provider_names = build_provider_name_map(config)
-    by_provider = defaultdict(list)
-    for row in encoding_times:
-        by_provider[row["provider"]].append(row)
+    starts: dict = {}
+    completes: dict = {}
+    for e in events:
+        if e.get("event") == "search_start":
+            starts.setdefault((e["provider"], e["clip"], e["codec"], e["target_vmaf"]), []).append(e)
+        elif e.get("event") == "search_complete":
+            completes.setdefault((e["provider"], e["clip"], e["codec"], e["target_vmaf"]), []).append(e)
+
+    rows = []
+    for key, comps in completes.items():
+        if key[0] == "vidaio":
+            continue
+        for c in comps:
+            if not c.get("converged"):
+                continue
+            ct = _dt.fromisoformat(c["timestamp"])
+            best_s, best_st = None, None
+            for s in starts.get(key, []):
+                st = _dt.fromisoformat(s["timestamp"])
+                if st <= ct and (best_st is None or st > best_st):
+                    best_s, best_st = s, st
+            if best_s is None:
+                continue
+            elapsed = (ct - best_st).total_seconds()
+            steps = max(c.get("steps", 1), 1)
+            rows.append({
+                "provider": key[0], "codec": key[2],
+                "total_s": elapsed, "per_pass_s": elapsed / steps, "steps": steps,
+            })
+
+    by_pc: dict = defaultdict(list)
+    for r in rows:
+        by_pc[(r["provider"], r["codec"])].append(r)
 
     summary = []
-    for pid, rows in by_provider.items():
-        times = [r["encode_time_s"] for r in rows if r.get("encode_time_s")]
-        durations = [r["clip_duration_s"] for r in rows if r.get("clip_duration_s")]
-        if not times:
-            continue
-        avg_time = sum(times) / len(times)
-        avg_duration = sum(durations) / len(durations) if durations else 60
+    for (pid, codec), group in sorted(by_pc.items()):
+        per_pass = _iqr_filter([r["per_pass_s"] for r in group])
+        total = _iqr_filter([r["total_s"] for r in group])
+        steps_vals = [r["steps"] for r in group]
         summary.append({
+            "provider_id": pid,
             "name": provider_names.get(pid, pid),
-            "avg_time": avg_time,
-            "avg_realtime": avg_time / avg_duration if avg_duration else 0,
-            "min_time": min(times),
-            "max_time": max(times),
+            "codec": codec,
+            "n": len(group),
+            "n_clean": len(per_pass),
+            "avg_per_pass_s": sum(per_pass) / len(per_pass) if per_pass else 0,
+            "avg_total_s": sum(total) / len(total) if total else 0,
+            "avg_steps": sum(steps_vals) / len(steps_vals) if steps_vals else 0,
+        })
+
+    for codec in ("h265", "av1"):
+        summary.append({
+            "provider_id": "vidaio",
+            "name": provider_names.get("vidaio", "Vidaio"),
+            "codec": codec,
+            "n": None, "n_clean": None,
+            "avg_per_pass_s": VIDAIO_PER_PASS_S,
+            "avg_total_s": VIDAIO_PER_PASS_S,
+            "avg_steps": 1.0,
         })
 
     return summary
@@ -924,7 +986,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "headline_av1": build_headline_ranking(comparable_results, config, "av1"),
         "codec_summary": build_codec_summary(results, config),
         "vertical_data": build_vertical_data(results, clips),
-        "speed_summary": build_speed_summary(encoding_times, config),
+        "speed_summary": build_speed_summary(jsonl_events, config),
         "pricing": build_pricing_data(pricing_rows, jsonl_events, config),
         "storage_projection": build_storage_projection(comparable_results, clips, config),
         "tco_scenario": tco_scenario,
