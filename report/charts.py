@@ -1150,11 +1150,7 @@ def gen_storage_projection(results, clips, config, figures_dir):
     for j in range(len(vids), rows * cols):
         axes[j // cols][j % cols].set_visible(False)
 
-    fig.suptitle(
-        f"Storage cost: {proj['hours']:,} hours of {proj['source_bitrate_kbps']} kbps source "
-        f"at VMAF {int(proj['target_vmaf'])} (S3 ${proj['cost_per_gb_month']}/GB/mo)",
-        fontsize=12,
-    )
+    fig.suptitle(f"Annual storage cost at VMAF {int(proj['target_vmaf'])}", fontsize=13)
     fig.tight_layout()
     fig.savefig(figures_dir / "storage_projection.png")
     plt.close(fig)

@@ -200,8 +200,9 @@ This section translates rate-distortion data into the metrics that storage-cost 
 
 ### Storage cost projection
 
+What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) on S3 (${{ storage_projection.cost_per_gb_month }}/GB/mo) for one year, after encoding through each provider at VMAF {{ storage_projection.target_vmaf | int }}, broken down by vertical. The dashed line shows what storing the raw source without re-encoding would cost.
+
 {{ figure("storage_projection", "Figure 5.1 — Annual Storage Cost") }}
-*{{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) encoded at VMAF {{ storage_projection.target_vmaf | int }}, then stored at S3 rate ${{ storage_projection.cost_per_gb_month }}/GB/mo. Per-vertical so content-type effects don't average out.*
 
 ### Quality floor guarantee
 

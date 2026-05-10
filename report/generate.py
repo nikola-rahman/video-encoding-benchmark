@@ -354,9 +354,10 @@ def build_pricing_data(pricing_rows: list[dict], config: dict) -> list[dict]:
 def build_storage_projection(results: list[dict], clips: list[dict], config: dict) -> dict:
     """Storage cost projection per (vertical, provider, codec) at one VMAF target.
 
-    Uses N hours of representative source video × each provider's mean
-    compression ratio at the chosen VMAF target, computed per vertical so
-    content-type effects don't get averaged away.
+    Apples-to-apples: per (vertical, codec), restrict to the set of clips
+    covered by every provider, AND require each provider's actual VMAF
+    on that clip to be >= target. Then mean compression ratio across that
+    common set is applied to a representative source.
     """
     import numpy as np
     provider_names = build_provider_name_map(config)
@@ -369,33 +370,61 @@ def build_storage_projection(results: list[dict], clips: list[dict], config: dic
     source_bytes = source_bitrate_kbps * 1000 * (hours * 3600) / 8
 
     clip_vertical = {c["clip"]: c["vertical"] for c in clips}
+    codecs = config.get("codecs", [])
 
-    by_vpc = defaultdict(list)
-    for r in results:
-        if r.get("target_vmaf") != target_vmaf:
-            continue
-        if not r.get("compression_ratio"):
-            continue
-        vertical = clip_vertical.get(r["clip"])
-        if not vertical:
-            continue
-        by_vpc[(vertical, r["provider"], r["codec"])].append(r["compression_ratio"])
-
+    # Apples-to-apples filter: per (vertical, codec), find clips where
+    # ALL providers tested for that (codec) actually hit the target VMAF.
     by_vertical = defaultdict(list)
-    for (vertical, pid, codec), ratios in by_vpc.items():
-        avg_ratio = float(np.mean(ratios))
-        output_bytes = source_bytes / avg_ratio
-        total_gb = output_bytes / (1024 ** 3)
-        annual_cost = total_gb * cost_per_gb_month * 12
-        by_vertical[vertical].append({
-            "provider": provider_names.get(pid, pid),
-            "codec": "AV1" if codec == "av1" else "H.265",
-            "ratio": avg_ratio,
-            "total_gb": total_gb,
-            "total_tb": total_gb / 1024,
-            "annual_cost": annual_cost,
-            "n_clips": len(ratios),
-        })
+    for vertical in {clip_vertical.get(r["clip"]) for r in results if clip_vertical.get(r["clip"])}:
+        for codec in codecs:
+            providers_attempted = {
+                r["provider"] for r in results
+                if clip_vertical.get(r["clip"]) == vertical and r["codec"] == codec
+            }
+            if not providers_attempted:
+                continue
+
+            # Per (clip, provider): does the provider hit target on this clip?
+            hit_by_provider = defaultdict(set)  # provider -> set of clips that hit
+            ratio_lookup = {}  # (provider, clip) -> ratio
+            for r in results:
+                if (clip_vertical.get(r["clip"]) != vertical or r["codec"] != codec
+                        or r.get("target_vmaf") != target_vmaf):
+                    continue
+                if (r.get("vmaf_harmonic_mean") or 0) >= target_vmaf and r.get("compression_ratio"):
+                    hit_by_provider[r["provider"]].add(r["clip"])
+                    ratio_lookup[(r["provider"], r["clip"])] = r["compression_ratio"]
+
+            # Common-hit clips: all attempted providers hit the target
+            if not hit_by_provider:
+                continue
+            attempted_who_hit = set(hit_by_provider.keys())
+            if attempted_who_hit != providers_attempted:
+                # At least one provider attempted but never hit target on any clip;
+                # they get excluded from this (vertical, codec) comparison
+                pass
+            common_clips = set.intersection(*hit_by_provider.values()) if hit_by_provider else set()
+            if not common_clips:
+                continue
+
+            for pid in providers_attempted & attempted_who_hit:
+                ratios = [ratio_lookup[(pid, c)] for c in common_clips
+                          if (pid, c) in ratio_lookup]
+                if not ratios:
+                    continue
+                avg_ratio = float(np.mean(ratios))
+                output_bytes = source_bytes / avg_ratio
+                total_gb = output_bytes / (1024 ** 3)
+                annual_cost = total_gb * cost_per_gb_month * 12
+                by_vertical[vertical].append({
+                    "provider": provider_names.get(pid, pid),
+                    "codec": "AV1" if codec == "av1" else "H.265",
+                    "ratio": avg_ratio,
+                    "total_gb": total_gb,
+                    "total_tb": total_gb / 1024,
+                    "annual_cost": annual_cost,
+                    "n_clips": len(common_clips),
+                })
 
     return {
         "by_vertical": dict(by_vertical),
