@@ -121,6 +121,8 @@ def load_csv(path: Path) -> list[dict]:
         for k, v in row.items():
             if v == "":
                 row[k] = None
+            elif v in ("True", "False"):
+                row[k] = (v == "True")
             else:
                 try:
                     row[k] = int(v)

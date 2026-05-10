@@ -69,6 +69,8 @@ def load_csv(path):
         for k, v in row.items():
             if v == "":
                 row[k] = None
+            elif v in ("True", "False"):
+                row[k] = (v == "True")
             else:
                 try:
                     row[k] = int(v)
@@ -239,8 +241,8 @@ def gen_aggregate_rd(results, config, figures_dir):
 
 
 def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
-    """Plot RD curves with median+IQR for converged + X markers for failed attempts."""
-    has_failed = False
+    """Plot RD curves with median+IQR for converged. Failures returned as annotation lines."""
+    failure_notes = []
     for pname in sorted(set(by_pc_converged.keys()) | set(by_pc_failed.keys())):
         color = get_color(pname)
 
@@ -272,21 +274,16 @@ def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
                     marker="o", markersize=7, label=pname,
                     markeredgecolor="white", markeredgewidth=1)
 
-        # Plot failed attempts as X markers (best-effort points that didn't reach target)
         failed = by_pc_failed.get(pname, {})
         if failed:
-            has_failed = True
-            best_per_clip = []
+            best_vmafs = []
             for clip, points in failed.items():
-                if not points: continue
-                best = max(points, key=lambda p: p["vmaf_harmonic_mean"])
-                best_per_clip.append((best["bitrate_kbps"], best["vmaf_harmonic_mean"]))
-            if best_per_clip:
-                xs, ys = zip(*best_per_clip)
-                label = pname if pname not in by_pc_converged else None
-                ax.scatter(xs, ys, color=color, marker="x", s=80, linewidths=2,
-                           alpha=0.8, label=label, zorder=5)
-    return has_failed
+                if points:
+                    best_vmafs.append(max(p["vmaf_harmonic_mean"] for p in points))
+            if best_vmafs:
+                avg_max = sum(best_vmafs) / len(best_vmafs)
+                failure_notes.append((pname, color, len(best_vmafs), avg_max))
+    return failure_notes
 
 
 def gen_codec_rd(results, config, figures_dir):
@@ -310,7 +307,7 @@ def gen_codec_rd(results, config, figures_dir):
             continue
 
         fig, ax = plt.subplots(figsize=(11, 7))
-        has_failed = _plot_rd_with_failed(ax, by_conv, by_failed, config)
+        failure_notes = _plot_rd_with_failed(ax, by_conv, by_failed, config)
 
         ax.set_xlabel("Bitrate (kbps)")
         ax.set_ylabel("VMAF (harmonic mean)")
@@ -322,10 +319,16 @@ def gen_codec_rd(results, config, figures_dir):
             ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
             ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                     va="bottom", fontsize=8, color="gray")
-        if has_failed:
-            ax.text(0.02, 0.02, "✕ = did not reach target VMAF (encoder ceiling)",
-                    transform=ax.transAxes, fontsize=8, color="gray",
-                    verticalalignment="bottom")
+        ax.set_ylim(min(targets) - 5, 96)
+        if failure_notes:
+            note_lines = ["Did not reach target VMAF (max achieved):"]
+            for pname, color, n, avg_max in failure_notes:
+                note_lines.append(f"  • {pname}: {avg_max:.0f} VMAF on {n} clip(s)")
+            ax.text(0.02, 0.02, "\n".join(note_lines),
+                    transform=ax.transAxes, fontsize=8, color="#444",
+                    verticalalignment="bottom",
+                    bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
+                              edgecolor="#bbb", alpha=0.9))
         fig.tight_layout()
         fig.savefig(out_path)
         plt.close(fig)
@@ -355,7 +358,7 @@ def gen_vertical_rd(results, clips, config, figures_dir):
                 continue
 
             fig, ax = plt.subplots(figsize=(11, 7))
-            has_failed = _plot_rd_with_failed(ax, by_conv, by_failed, config)
+            failure_notes = _plot_rd_with_failed(ax, by_conv, by_failed, config)
             ax.set_xlabel("Bitrate (kbps)")
             ax.set_ylabel("VMAF (harmonic mean)")
             ax.set_title(f"RD — {codec_label}, {v['name']}")
@@ -366,10 +369,16 @@ def gen_vertical_rd(results, clips, config, figures_dir):
                 ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
                 ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                         va="bottom", fontsize=8, color="gray")
-            if has_failed:
-                ax.text(0.02, 0.02, "✕ = did not reach target VMAF (encoder ceiling)",
-                        transform=ax.transAxes, fontsize=8, color="gray",
-                        verticalalignment="bottom")
+            ax.set_ylim(min(targets) - 5, 96)
+            if failure_notes:
+                note_lines = ["Did not reach target VMAF (max achieved):"]
+                for pname, color, n, avg_max in failure_notes:
+                    note_lines.append(f"  • {pname}: {avg_max:.0f} VMAF on {n} clip(s)")
+                ax.text(0.02, 0.02, "\n".join(note_lines),
+                        transform=ax.transAxes, fontsize=8, color="#444",
+                        verticalalignment="bottom",
+                        bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
+                                  edgecolor="#bbb", alpha=0.9))
             fig.tight_layout()
             fig.savefig(figures_dir / f"rd_{codec}_{v['id']}.png")
             plt.close(fig)
@@ -420,9 +429,8 @@ def gen_storage_savings_bar(results, config, figures_dir):
 
 
 def gen_bdrate_bars(results, config, figures_dir):
-    """BD-Rate bar charts per codec."""
-    from report.generate import compute_bdrate, interpolate_metric_at_vmaf
-    vmaf_target = config.get("vmaf_transparent", VMAF_TRANSPARENT)
+    """BD-Rate bar charts per codec, computed per-clip and averaged."""
+    from report.generate import compute_bdrate
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
@@ -431,15 +439,22 @@ def gen_bdrate_bars(results, config, figures_dir):
             if r.get("codec") == codec:
                 by_provider[r["provider"]].append(r)
 
-        # Find reference (best provider)
-        provider_fs = {}
+        # Reference = provider with smallest avg compression-ratio-equivalent
+        # (use median bitrate at the highest common VMAF target as proxy)
+        provider_avg_br = {}
         for pid, data in by_provider.items():
-            fs = interpolate_metric_at_vmaf(data, vmaf_target, "file_size_bytes")
-            if fs:
-                provider_fs[pid] = fs
-        if not provider_fs:
+            brs = [r["bitrate_kbps"] for r in data if r.get("bitrate_kbps")]
+            if brs:
+                provider_avg_br[pid] = sum(brs) / len(brs)
+        if not provider_avg_br:
             continue
-        ref_pid = min(provider_fs, key=provider_fs.get)
+        ref_pid = min(provider_avg_br, key=provider_avg_br.get)
+
+        # Group by clip for per-clip BD-Rate
+        points_by_clip = defaultdict(lambda: defaultdict(list))
+        for r in results:
+            if r.get("codec") == codec:
+                points_by_clip[r["clip"]][r["provider"]].append(r)
 
         labels, values = [], []
         for pid, data in sorted(by_provider.items()):
@@ -448,10 +463,17 @@ def gen_bdrate_bars(results, config, figures_dir):
                 labels.append(f"{pname} (ref)")
                 values.append(0)
             else:
-                bd = compute_bdrate(by_provider[ref_pid], data)
-                if bd is not None:
+                per_clip = []
+                for clip, provs in points_by_clip.items():
+                    ref_clip = provs.get(ref_pid, [])
+                    test_clip = provs.get(pid, [])
+                    if len(ref_clip) >= 2 and len(test_clip) >= 2:
+                        bd = compute_bdrate(ref_clip, test_clip)
+                        if bd is not None:
+                            per_clip.append(bd)
+                if per_clip:
                     labels.append(pname)
-                    values.append(bd)
+                    values.append(round(sum(per_clip) / len(per_clip), 1))
 
         if labels:
             fig, ax = plt.subplots(figsize=(9, max(4, len(labels) * 0.8)))
