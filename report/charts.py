@@ -651,34 +651,52 @@ def gen_tco_stacked(results, pricing_rows, config, figures_dir):
 
 
 def gen_codec_comparison(results, config, figures_dir):
-    """Figure 4.3.1 — AV1 vs H.265 overlay for 3 providers."""
+    """Figure 4.3.1 — AV1 vs H.265 overlay using median curves per provider/codec."""
     codecs = config.get("codecs", [])
     if len(codecs) < 2:
         return
 
-    non_bb = [p for p in config["providers"] if not p.get("blackbox")]
-    if not non_bb:
-        return
+    targets = config.get("vmaf_targets", [85, 89, 93])
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for p in non_bb:
+    fig, ax = plt.subplots(figsize=(11, 7))
+    for p in config["providers"]:
         for codec in codecs:
             codec_label = "AV1" if codec == "av1" else "H.265"
             linestyle = "-" if codec == "av1" else "--"
-            points = [r for r in results if r["provider"] == p["id"] and r.get("codec") == codec]
+            points = [r for r in results
+                      if r["provider"] == p["id"] and r.get("codec") == codec]
             if not points:
                 continue
-            points.sort(key=lambda x: x["bitrate_kbps"])
-            ax.plot([r["bitrate_kbps"] for r in points], [r["vmaf_harmonic_mean"] for r in points],
-                    marker=get_marker(p["name"]), color=get_color(p["name"]),
-                    linestyle=linestyle, linewidth=2, markersize=6,
-                    label=f"{p['name']} ({codec_label})")
+            by_target = defaultdict(list)
+            for r in points:
+                by_target[r["target_vmaf"]].append((r["bitrate_kbps"], r["vmaf_harmonic_mean"]))
 
-    ax.set_xlabel("Bitrate (kbps)")
-    ax.set_ylabel("VMAF Score")
+            med_x, med_y = [], []
+            for t in sorted(by_target.keys()):
+                br = [v[0] for v in by_target[t]]
+                vm = [v[1] for v in by_target[t]]
+                if len(br) < 2:
+                    continue
+                med_x.append(np.median(br))
+                med_y.append(np.median(vm))
+
+            if med_x:
+                ax.plot(med_x, med_y,
+                        marker=get_marker(p["name"]), color=get_color(p["name"]),
+                        linestyle=linestyle, linewidth=2, markersize=7,
+                        markeredgecolor="white", markeredgewidth=1,
+                        label=f"{p['name']} ({codec_label})")
+
+    ax.set_xlabel("Median Bitrate (kbps)")
+    ax.set_ylabel("Median VMAF (harmonic mean)")
     ax.set_title("AV1 vs. H.265 — Codec Comparison")
+    ax.set_xscale("log")
     ax.legend(fontsize=8, ncol=2)
-    add_vmaf_lines(ax)
+    ax.grid(True, alpha=0.3, which="both")
+    for target in targets:
+        ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
+        ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
+                va="bottom", fontsize=8, color="gray")
     fig.tight_layout()
     fig.savefig(figures_dir / "codec_comparison_overlay.png")
     plt.close(fig)
