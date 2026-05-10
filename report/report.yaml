@@ -20,22 +20,12 @@ projection:
 providers:
   - id: bitmovin
     name: "Bitmovin"
-    blackbox: false
-  - id: cloudflare
-    name: "Cloudflare Stream"
-    blackbox: true
   - id: mediaconvert
     name: "AWS MediaConvert"
-    blackbox: false
-  - id: mux
-    name: "Mux"
-    blackbox: true
   - id: vidaio
     name: "Vidaio"
-    blackbox: false
   - id: zencoder
     name: "Brightcove Zencoder"
-    blackbox: false
 
 codecs:
   - av1

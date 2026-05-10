@@ -55,6 +55,8 @@ This report was commissioned by {{ config.commissioned_by }} and produced by {{ 
 - The complete raw data and measurement code are available at {{ config.repo_url }}.
 - Draft results were shared with all tested providers prior to publication for factual accuracy review.
 
+**Providers considered but excluded:** Mux and Cloudflare Stream were initially evaluated but excluded from the final benchmark — both produce H.264-only static MP4 downloads with no quality controls. AV1 and H.265 are only available via streaming, not as downloadable files, making fair comparison with the other providers impossible.
+
 ---
 
 ## 1. Executive Summary
@@ -72,8 +74,7 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 1. **Compression efficiency varies significantly across providers.** At equivalent quality (VMAF {{ vmaf_transparent }}), file sizes differ by up to {{ "%.0f" | format(stats.max_size_spread_pct) }}% between the most and least efficient provider.
 2. **{{ stats.best_provider_at_target }} produces the smallest files at VMAF {{ vmaf_transparent }}**, averaging {{ "%.1f" | format(stats.best_size_at_target_mb) }} MB across all test clips. The next-closest provider requires {{ "%.1f" | format(stats.second_size_at_target_mb) }} MB — a {{ "%.0f" | format(stats.size_diff_pct) }}% difference.
 3. **AV1 delivers {{ "%.0f" | format(stats.av1_h265_advantage_pct) }}% better compression than H.265** across all providers. {{ stats.av1_winner_note }}
-4. **Black-box providers (Mux, Cloudflare) trade configurability for simplicity.** Their single operating points {{ stats.blackbox_position_note }}
-5. **Ease of use and compression efficiency present different tradeoffs.** {{ stats.ease_efficiency_note }}
+4. **Ease of use and compression efficiency present different tradeoffs.** {{ stats.ease_efficiency_note }}
 
 ### Headline findings tables
 
@@ -154,8 +155,6 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Configurable providers:** For each clip, an interpolation search over each provider's quality parameter finds the setting that hits target VMAF scores ({{ vmaf_targets | join(', ') }}). This produces matched-quality data points for direct comparison.
 
-**Black-box providers:** Mux and Cloudflare Stream produce one output per input with no quality controls. Their single operating point is plotted against other providers' RD curves. See [Section 3.4](#34-handling-black-box-providers) for details.
-
 ### 3.3 Quality Measurement
 
 - **VMAF model:** vmaf_v0.6.1neg
@@ -172,17 +171,6 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Metric chosen for Vidaio:** Vidaio only supports `vmaf_v0.6.1neg` — no other VMAF model, PSNR, SSIM, or other quality metric can be targeted. This dictates the benchmark metric for the entire report, since Vidaio could not be included otherwise. The other providers (AWS MediaConvert, Bitmovin, Brightcove Zencoder) have no such restriction and can be benchmarked against any quality metric.
 
-### 3.4 Handling Black-Box Providers
-
-Mux and Cloudflare Stream do not expose quality controls. This creates an asymmetry:
-
-- **On RD curve charts:** Configurable providers appear as curves. Black-box providers appear as single labeled points (diamond markers).
-- **On "file size at VMAF {{ vmaf_transparent }}" charts:** If the black-box provider's output exceeds VMAF {{ vmaf_transparent }}, its actual file size is used. If it falls below VMAF {{ vmaf_transparent }}, it is marked as "did not achieve target" with the actual VMAF annotated.
-- **On BD-Rate rankings:** Black-box providers are excluded from BD-Rate computation (which requires multiple points) and ranked separately.
-- **Cloudflare codec note:** Cloudflare Stream outputs H.264 only. It appears in cross-codec comparisons with a clear annotation that the codec differs.
-
-**Fairness note:** Black-box simplicity is a feature for many customers. Where ease-of-use may outweigh raw compression efficiency, this is noted in the [Recommendations](#11-recommendations-by-use-case) section.
-
 ---
 
 ## 4. Results by Codec
@@ -195,7 +183,7 @@ Mux and Cloudflare Stream do not expose quality controls. This creates an asymme
 #### {{ sec_base }}.1 Aggregate {{ codec_label }} Rate-Distortion
 
 {{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 — Aggregate RD Curves, " ~ codec_label) }}
-*All providers, {{ codec_label }} encoding, averaged across all test clips. Configurable providers shown as curves; black-box providers as single points. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}).*
+*All providers, {{ codec_label }} encoding, averaged across all test clips. Horizontal lines at VMAF targets ({{ vmaf_targets | join(', ') }}).*
 
 {{ provider_summary_table(codec, codec_summary[codec]) }}
 
@@ -411,9 +399,8 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 2. **Provider evolution.** Cloud encoders are updated frequently. These results reflect provider capabilities as of {{ config.date }}.
 3. **Pricing not fully compared.** Encoding, storage, and delivery costs vary by volume, contract, and region. Storage projections use public list prices and do not account for negotiated enterprise rates.
 4. **VMAF limitations on UGC.** VMAF may correlate less well with subjective quality on noisy, low-quality UGC content. Results on UGC clips should be interpreted with this caveat.
-5. **Black-box provider snapshots.** Mux and Cloudflare may change their encoding pipelines at any time. The single data points in this report are snapshots, not permanent characterizations.
-6. **No subjective evaluation.** This benchmark uses objective metrics only. A subjective study (MOS scores) would provide additional validation.
-7. **Encoding time variability.** Cloud encoding speed depends on server load and is not deterministic.
+5. **No subjective evaluation.** This benchmark uses objective metrics only. A subjective study (MOS scores) would provide additional validation.
+6. **Encoding time variability.** Cloud encoding speed depends on server load and is not deterministic.
 
 ### Future work
 
