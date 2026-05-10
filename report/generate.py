@@ -153,19 +153,11 @@ def compute_stats(results: list[dict], clips: list[dict], config: dict) -> dict:
     unique_clips = set(r["clip"] for r in results) | set(c["clip"] for c in clips)
     unique_providers = set(r["provider"] for r in results)
 
+    import statistics as _stats
+
     stats = {
         "n_clips": len(unique_clips),
         "n_providers": len(config["providers"]),
-        # Placeholders — filled when enough data exists
-        "max_size_spread_pct": 0,
-        "best_provider_at_target": "TBD",
-        "best_size_at_target_mb": 0,
-        "second_size_at_target_mb": 0,
-        "size_diff_pct": 0,
-        "av1_h265_advantage_pct": 0,
-        "av1_winner_note": "*To be computed from full results.*",
-        "blackbox_position_note": "*To be computed from full results.*",
-        "ease_efficiency_note": "*To be computed from full results.*",
         "easy_clip": None,
         "hard_clip": None,
     }
@@ -173,42 +165,64 @@ def compute_stats(results: list[dict], clips: list[dict], config: dict) -> dict:
     if not results:
         return stats
 
-    # File size at VMAF target, per provider (simple: closest point above threshold)
     vmaf_target = config.get("vmaf_transparent", 93)
-    provider_sizes = defaultdict(list)
-    for r in results:
-        if r.get("vmaf_harmonic_mean") and r["vmaf_harmonic_mean"] >= vmaf_target:
-            provider_sizes[r["provider"]].append(r["file_size_bytes"])
 
-    if provider_sizes:
-        avg_sizes = {
-            p: sum(sizes) / len(sizes) for p, sizes in provider_sizes.items()
-        }
-        ranked = sorted(avg_sizes.items(), key=lambda x: x[1])
-        if len(ranked) >= 2:
-            best_id, best_size = ranked[0]
-            second_id, second_size = ranked[1]
-            worst_size = ranked[-1][1]
-            stats["best_provider_at_target"] = provider_names.get(best_id, best_id)
-            stats["best_size_at_target_mb"] = best_size / (1024 * 1024)
-            stats["second_size_at_target_mb"] = second_size / (1024 * 1024)
-            stats["size_diff_pct"] = ((second_size - best_size) / best_size) * 100
-            stats["max_size_spread_pct"] = ((worst_size - best_size) / best_size) * 100
-        elif len(ranked) == 1:
-            best_id, best_size = ranked[0]
-            stats["best_provider_at_target"] = provider_names.get(best_id, best_id)
-            stats["best_size_at_target_mb"] = best_size / (1024 * 1024)
+    # Per-codec headline numbers on the apples-to-apples common subset:
+    # clips × VMAF target combos that ALL providers tested for that codec.
+    for codec in ("h265", "av1"):
+        codec_rows = [r for r in results if r.get("codec") == codec]
+        combos_by_provider = defaultdict(set)
+        for r in codec_rows:
+            combos_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+        if not combos_by_provider:
+            continue
+        common = set.intersection(*combos_by_provider.values())
+        common_at_target = {(c, t) for (c, t) in common if t == vmaf_target}
+        if not common_at_target:
+            continue
 
-    # AV1 vs H.265 advantage
-    codec_sizes = defaultdict(list)
+        sizes = defaultdict(list)
+        for r in codec_rows:
+            if (r["clip"], r["target_vmaf"]) in common_at_target and r.get("file_size_bytes"):
+                sizes[r["provider"]].append(r["file_size_bytes"])
+        means = {p: sum(s) / len(s) for p, s in sizes.items() if s}
+        if len(means) < 2:
+            continue
+        ranked = sorted(means.items(), key=lambda x: x[1])
+        best_id, best_bytes = ranked[0]
+        second_id, second_bytes = ranked[1]
+        worst_id, worst_bytes = ranked[-1]
+        stats[f"{codec}_n_combos"] = len(common_at_target)
+        stats[f"{codec}_best_provider"] = provider_names.get(best_id, best_id)
+        stats[f"{codec}_best_mb"] = best_bytes / (1024 * 1024)
+        stats[f"{codec}_second_provider"] = provider_names.get(second_id, second_id)
+        stats[f"{codec}_second_mb"] = second_bytes / (1024 * 1024)
+        stats[f"{codec}_worst_provider"] = provider_names.get(worst_id, worst_id)
+        stats[f"{codec}_worst_mb"] = worst_bytes / (1024 * 1024)
+        stats[f"{codec}_second_vs_best_pct"] = (second_bytes - best_bytes) / best_bytes * 100
+        stats[f"{codec}_worst_vs_best_pct"] = (worst_bytes - best_bytes) / best_bytes * 100
+
+    # AV1 vs H.265 advantage, per-clip ratio within provider, geo-mean
+    # (multiplicative metric → geometric mean is the right aggregator).
+    by_pct = defaultdict(dict)
     for r in results:
-        if r.get("file_size_bytes"):
-            codec_sizes[r["codec"]].append(r["file_size_bytes"])
-    if codec_sizes.get("av1") and codec_sizes.get("h265"):
-        avg_av1 = sum(codec_sizes["av1"]) / len(codec_sizes["av1"])
-        avg_h265 = sum(codec_sizes["h265"]) / len(codec_sizes["h265"])
-        if avg_h265 > 0:
-            stats["av1_h265_advantage_pct"] = ((avg_h265 - avg_av1) / avg_h265) * 100
+        by_pct[(r["provider"], r["clip"], r["target_vmaf"])][r["codec"]] = r
+    by_provider_ratios = defaultdict(list)
+    all_ratios = []
+    for k, v in by_pct.items():
+        a = v.get("av1", {}).get("file_size_bytes")
+        h = v.get("h265", {}).get("file_size_bytes")
+        if a and h:
+            ratio = a / h
+            by_provider_ratios[k[0]].append(ratio)
+            all_ratios.append(ratio)
+    if all_ratios:
+        stats["av1_vs_h265_savings_pct"] = (1 - _stats.geometric_mean(all_ratios)) * 100
+    av1_h265_by_provider = {}
+    for pid, rs in by_provider_ratios.items():
+        if len(rs) >= 3:
+            av1_h265_by_provider[provider_names.get(pid, pid)] = (1 - _stats.geometric_mean(rs)) * 100
+    stats["av1_vs_h265_by_provider"] = av1_h265_by_provider
 
     # Easy/hard clips by TI (temporal information)
     if clips:
@@ -788,6 +802,7 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
             "name": p["name"],
             "vmaf_avg": p["vmaf_avg"],
             "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
+            "bdrate_value": bdrate,
             "compression_ratio": f"{cr:.1f}x" if cr else "—",
             "compression_ratio_value": cr,
             "rank": 0,
@@ -953,13 +968,28 @@ def build_context(config: dict, report_dir: Path) -> dict:
                 if line.strip():
                     jsonl_events.append(json.loads(line))
 
-    stats = compute_stats(results, clips, config)
     providers = build_providers_context(config)
 
     # For headline ranking, only use results from benchmark codecs (av1, h265)
     # to avoid cross-codec comparisons with black-box H.264 providers
     benchmark_codecs = set(config.get("codecs", []))
     comparable_results = [r for r in results if r.get("codec") in benchmark_codecs]
+    stats = compute_stats(comparable_results, clips, config)
+
+    # Derive BD-Rate headline numbers from per-codec rankings (apples-to-apples).
+    headline_h265 = build_headline_ranking(comparable_results, config, "h265")
+    headline_av1 = build_headline_ranking(comparable_results, config, "av1")
+    for codec, hr in (("h265", headline_h265), ("av1", headline_av1)):
+        ref_row = next((r for r in hr["rows"] if r["bdrate"] == "ref"), None)
+        if ref_row:
+            stats[f"{codec}_bdrate_best_provider"] = ref_row["name"]
+        gaps = sorted(
+            [(r["name"], r["bdrate_value"]) for r in hr["rows"] if r.get("bdrate_value") is not None],
+            key=lambda x: x[1],
+        )
+        if gaps:
+            stats[f"{codec}_bdrate_second"] = gaps[0]
+            stats[f"{codec}_bdrate_worst"] = gaps[-1]
 
     proj = config.get("projection", {})
     num_videos = proj.get("num_videos", 1_000_000)
@@ -982,8 +1012,8 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "verticals": config.get("verticals", []),
         "providers": providers,
         "all_results": results,
-        "headline_h265": build_headline_ranking(comparable_results, config, "h265"),
-        "headline_av1": build_headline_ranking(comparable_results, config, "av1"),
+        "headline_h265": headline_h265,
+        "headline_av1": headline_av1,
         "codec_summary": build_codec_summary(results, config),
         "vertical_data": build_vertical_data(results, clips),
         "speed_summary": build_speed_summary(jsonl_events, config),

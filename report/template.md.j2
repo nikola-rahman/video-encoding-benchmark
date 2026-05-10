@@ -62,10 +62,11 @@ Existing video encoding benchmarks evaluate providers through a streaming lens �
 
 ### Headline findings
 
-1. **Compression efficiency varies significantly across providers.** At equivalent quality (VMAF {{ vmaf_transparent }}), file sizes differ by up to {{ "%.0f" | format(stats.max_size_spread_pct) }}% between the most and least efficient provider.
-2. **{{ stats.best_provider_at_target }} produces the smallest files at VMAF {{ vmaf_transparent }}**, averaging {{ "%.1f" | format(stats.best_size_at_target_mb) }} MB across all test clips. The next-closest provider requires {{ "%.1f" | format(stats.second_size_at_target_mb) }} MB — a {{ "%.0f" | format(stats.size_diff_pct) }}% difference.
-3. **AV1 delivers {{ "%.0f" | format(stats.av1_h265_advantage_pct) }}% better compression than H.265** across all providers. {{ stats.av1_winner_note }}
-4. **Ease of use and compression efficiency present different tradeoffs.** {{ stats.ease_efficiency_note }}
+All numbers below are computed on the apples-to-apples common subset: clips and VMAF targets that **all providers** tested for the codec in question. The headline metric is **BD-Rate** — the average bitrate gap at matched VMAF, integrated across the tested quality range. Lower is better; "ref" is the reference encoder.
+
+1. **{{ stats.h265_bdrate_best_provider }} is the most compression-efficient encoder in both codecs.** At matched quality, the next-best provider needs **+{{ "%.0f" | format(stats.h265_bdrate_second[1]) }}% more bits in H.265** ({{ stats.h265_bdrate_second[0] }}) and **+{{ "%.0f" | format(stats.av1_bdrate_second[1]) }}% more bits in AV1** ({{ stats.av1_bdrate_second[0] }}). The widest H.265 gap is +{{ "%.0f" | format(stats.h265_bdrate_worst[1]) }}% ({{ stats.h265_bdrate_worst[0] }}); the widest AV1 gap is +{{ "%.0f" | format(stats.av1_bdrate_worst[1]) }}% ({{ stats.av1_bdrate_worst[0] }}).
+
+2. **AV1's gain over H.265 depends heavily on the encoder.** Across clips encoded by the same provider in both codecs, AV1 saves {% for name, pct in stats.av1_vs_h265_by_provider.items() %}{% if not loop.first %}, {% endif %}**{{ "%.0f" | format(pct) }}% with {{ name }}**{% endfor %}. The codec specification is the same; the realized compression is not.
 
 ### Headline findings tables
 
