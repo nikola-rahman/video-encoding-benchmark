@@ -351,42 +351,95 @@ def build_pricing_data(pricing_rows: list[dict], config: dict) -> list[dict]:
     ]
 
 
-def build_storage_projection(results: list[dict], config: dict) -> list[dict]:
-    """Build storage cost projection table."""
+def build_storage_projection(results: list[dict], config: dict) -> dict:
+    """Storage cost projection per (provider, codec, VMAF target).
+
+    Uses a representative source (size = source_bitrate_kbps × duration / 8) and
+    each provider's median measured compression ratio at each VMAF target.
+    Avoids bias from clip sizes in the test corpus.
+    """
+    import numpy as np
     provider_names = build_provider_name_map(config)
-    vmaf_target = config.get("vmaf_transparent", 93)
     proj = config.get("projection", {})
     num_videos = proj.get("num_videos", 1_000_000)
+    duration_s = proj.get("duration_s", 60)
+    source_bitrate_kbps = proj.get("source_bitrate_kbps", 5000)
     cost_per_gb_month = config.get("storage_cost_per_gb_month", 0.023)
+    targets = config.get("vmaf_targets", [85, 89, 93])
 
-    by_provider = defaultdict(list)
+    source_bytes_per_video = source_bitrate_kbps * 1000 * duration_s / 8
+
+    # Per-codec common subset of (clip, target) covered by all providers in that codec
+    codecs = config.get("codecs", [])
+    common_by_codec = {}
+    for codec in codecs:
+        codec_results = [r for r in results if r.get("codec") == codec]
+        combos_by_provider = defaultdict(set)
+        for r in codec_results:
+            combos_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+        if combos_by_provider:
+            common_by_codec[codec] = set.intersection(*combos_by_provider.values())
+        else:
+            common_by_codec[codec] = set()
+
+    by_pct = defaultdict(list)  # (provider, codec, target) -> [ratios]
     for r in results:
-        by_provider[r["provider"]].append(r)
+        if not r.get("compression_ratio"):
+            continue
+        codec = r["codec"]
+        if (r["clip"], r["target_vmaf"]) not in common_by_codec.get(codec, set()):
+            continue
+        by_pct[(r["provider"], codec, r["target_vmaf"])].append(r["compression_ratio"])
 
     rows = []
-    for pid, data in by_provider.items():
-        fs = interpolate_metric_at_vmaf(data, vmaf_target, "file_size_bytes")
-        if fs is None:
-            # Use average file size of points above target as fallback
-            above = [r["file_size_bytes"] for r in data
-                     if r.get("vmaf_harmonic_mean") and r["vmaf_harmonic_mean"] >= vmaf_target and r.get("file_size_bytes")]
-            fs = sum(above) / len(above) if above else None
+    providers = sorted({pid for (pid, _, _) in by_pct.keys()})
+    for pid in providers:
+        for codec in codecs:
+            row = {
+                "name": provider_names.get(pid, pid),
+                "codec": "AV1" if codec == "av1" else "H.265",
+                "by_target": {},
+            }
+            any_data = False
+            for target in targets:
+                ratios = by_pct.get((pid, codec, target), [])
+                if not ratios:
+                    continue
+                any_data = True
+                avg_ratio = float(np.mean(ratios))
+                output_bytes = source_bytes_per_video / avg_ratio
+                total_gb = output_bytes * num_videos / (1024 ** 3)
+                total_tb = total_gb / 1024
+                annual_cost = total_gb * cost_per_gb_month * 12
+                row["by_target"][target] = {
+                    "ratio": avg_ratio,
+                    "tb": total_tb,
+                    "cost": annual_cost,
+                }
+            if any_data:
+                rows.append(row)
 
-        if fs is None:
-            continue
+    # Format each row as a complete table row string
+    formatted = []
+    for r in sorted(rows, key=lambda x: (x["name"], x["codec"])):
+        cells = [f"| {r['name']} | {r['codec']} |"]
+        for t in targets:
+            if t in r["by_target"]:
+                bt = r["by_target"][t]
+                cells.append(f" {bt['tb']:.2f} / ${bt['cost']:,.0f} |")
+            else:
+                cells.append(" — |")
+        formatted.append("".join(cells))
 
-        total_bytes = fs * num_videos
-        total_tb = total_bytes / (1024 ** 4)
-        total_gb = total_bytes / (1024 ** 3)
-        annual_cost = total_gb * cost_per_gb_month * 12
-
-        rows.append({
-            "name": provider_names.get(pid, pid),
-            "total_tb": total_tb,
-            "annual_cost": annual_cost,
-        })
-
-    return rows
+    return {
+        "rows": rows,
+        "formatted_rows": formatted,
+        "targets": targets,
+        "source_bitrate_kbps": source_bitrate_kbps,
+        "duration_s": duration_s,
+        "num_videos": num_videos,
+        "source_size_mb": source_bytes_per_video / (1024 ** 2),
+    }
 
 
 def build_tco(results: list[dict], pricing_rows: list[dict], config: dict) -> list[dict]:

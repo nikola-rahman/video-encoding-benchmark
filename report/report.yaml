@@ -15,6 +15,7 @@ projection:
   num_videos: 1000000
   duration_s: 60
   resolution: "1080p"
+  source_bitrate_kbps: 5000  # representative 1080p source bitrate
 
 # Provider display names (alphabetical order in all tables)
 providers:
