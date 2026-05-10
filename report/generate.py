@@ -336,19 +336,69 @@ def build_speed_summary(encoding_times: list[dict], config: dict) -> list[dict]:
     return summary
 
 
-def build_pricing_data(pricing_rows: list[dict], config: dict) -> list[dict]:
-    """Build pricing table data."""
+def avg_iterations_by_provider_codec(events: list[dict]) -> dict:
+    """Compute mean iteration count per (provider, codec) from JSONL events."""
+    from collections import defaultdict
+    latest = {}
+    for e in events:
+        if e.get("event") != "search_complete" or not e.get("converged"):
+            continue
+        key = (e["provider"], e["clip"], e["codec"], e["target_vmaf"])
+        if key not in latest or e["timestamp"] > latest[key]["timestamp"]:
+            latest[key] = e
+    by_pc = defaultdict(list)
+    for e in latest.values():
+        by_pc[(e["provider"], e["codec"])].append(e.get("steps", 1))
+    return {k: sum(v) / len(v) for k, v in by_pc.items()}
+
+
+def _parse_price(s):
+    if not s or s in ("TBD", "—", "n/a"):
+        return None
+    try:
+        return float(str(s).replace("$", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def build_pricing_data(pricing_rows: list[dict], events: list[dict], config: dict) -> dict:
+    """Build sticker pricing + effective cost per source minute (sticker × avg iterations)."""
     provider_names = build_provider_name_map(config)
-    return [
-        {
+    avg_iters = avg_iterations_by_provider_codec(events)
+
+    sticker = []
+    for r in pricing_rows:
+        sticker.append({
             "name": provider_names.get(r["provider"], r["provider"]),
             "pricing_model": r.get("pricing_model", ""),
-            "cost_per_min_1080p": r.get("cost_per_min_1080p", "TBD"),
-            "cost_per_min_4k": r.get("cost_per_min_4k", "TBD"),
+            "cost_per_min_1080p_h265": r.get("cost_per_min_1080p_h265", "—"),
+            "cost_per_min_1080p_av1": r.get("cost_per_min_1080p_av1", "—"),
             "notes": r.get("notes", ""),
-        }
-        for r in pricing_rows
-    ]
+            "source": r.get("source", ""),
+        })
+
+    effective = []
+    for r in pricing_rows:
+        pid = r["provider"]
+        iters_h265 = avg_iters.get((pid, "h265"))
+        iters_av1 = avg_iters.get((pid, "av1"))
+        h265_sticker = _parse_price(r.get("cost_per_min_1080p_h265"))
+        av1_sticker = _parse_price(r.get("cost_per_min_1080p_av1"))
+
+        def fmt(sticker, iters):
+            if sticker is None or iters is None:
+                return "—"
+            return f"${sticker * iters:.3f}"
+
+        effective.append({
+            "name": provider_names.get(pid, pid),
+            "iters_h265": f"{iters_h265:.1f}" if iters_h265 else "—",
+            "iters_av1": f"{iters_av1:.1f}" if iters_av1 else "—",
+            "effective_h265": fmt(h265_sticker, iters_h265),
+            "effective_av1": fmt(av1_sticker, iters_av1),
+        })
+
+    return {"sticker": sticker, "effective": effective}
 
 
 def build_storage_projection(results: list[dict], clips: list[dict], config: dict) -> dict:
@@ -831,6 +881,16 @@ def build_context(config: dict, report_dir: Path) -> dict:
     encoding_times = load_csv(report_dir / config["data"]["encoding_times"])
     pricing_rows = load_csv(report_dir / config["data"]["pricing"])
 
+    # Load raw JSONL events to derive iteration counts
+    import json, glob
+    jsonl_dir = report_dir.parent / "data" / "results"
+    jsonl_events = []
+    for f in sorted(jsonl_dir.glob("*.jsonl")):
+        with open(f) as fh:
+            for line in fh:
+                if line.strip():
+                    jsonl_events.append(json.loads(line))
+
     stats = compute_stats(results, clips, config)
     providers = build_providers_context(config)
 
@@ -865,7 +925,7 @@ def build_context(config: dict, report_dir: Path) -> dict:
         "codec_summary": build_codec_summary(results, config),
         "vertical_data": build_vertical_data(results, clips),
         "speed_summary": build_speed_summary(encoding_times, config),
-        "pricing": build_pricing_data(pricing_rows, config),
+        "pricing": build_pricing_data(pricing_rows, jsonl_events, config),
         "storage_projection": build_storage_projection(comparable_results, clips, config),
         "tco_scenario": tco_scenario,
         "tco": build_tco(comparable_results, pricing_rows, config),

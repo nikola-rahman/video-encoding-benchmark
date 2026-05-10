@@ -206,77 +206,29 @@ What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours 
 
 ---
 
-## 6. Ease of Use
+## 6. Pricing Analysis
 
-Compression efficiency matters, but so does how much effort it takes to achieve it. This section evaluates each provider on what it takes to get optimal quality-per-bit results.
+### Sticker price per output minute (1080p, public list)
 
-### Configuration complexity
-
-| Provider | Steps to Optimal Quality | Quality Control | Codec Selection | Expertise Required |
-|----------|--------------------------|----------------|-----------------|-------------------|
-{% for p in providers | sort(attribute='name') %}| {{ p.name }} | {{ p.steps_to_optimal }} | {{ p.quality_control }} | {{ p.codec_selection }} | {{ p.expertise }} |
+| Provider | H.265 | AV1 | Pricing Model | Notes |
+|----------|-------|-----|---------------|-------|
+{% for p in pricing.sticker | sort(attribute='name') %}| {{ p.name }} | {{ p.cost_per_min_1080p_h265 }} | {{ p.cost_per_min_1080p_av1 }} | {{ p.pricing_model }} | {{ p.notes }} |
 {% endfor %}
 
-### What "best compression for given quality" requires
+### Effective cost per source minute
 
-For each provider, the practical steps needed to achieve the best possible file size at a target quality (e.g., VMAF {{ vmaf_transparent }}):
+Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to converge to a target VMAF — every pass is billed. Effective cost = sticker price × average passes to converge.
 
-| Provider | Process | Iteration Required? |
-|----------|---------|-------------------|
-{% for p in providers | sort(attribute='name') %}| **{{ p.name }}** | {{ p.optimization_process | d("TBD") }} | {{ p.iteration_required | d("TBD") }} |
+| Provider | Avg passes (H.265) | Avg passes (AV1) | Effective $/min (H.265) | Effective $/min (AV1) |
+|----------|-------------------|------------------|------------------------|----------------------|
+{% for p in pricing.effective | sort(attribute='name') %}| {{ p.name }} | {{ p.iters_h265 }} | {{ p.iters_av1 }} | {{ p.effective_h265 }} | {{ p.effective_av1 }} |
 {% endfor %}
 
-### API integration effort
-
-| Provider | SDK | Auth Setup | Job Submission | Result Retrieval | Documentation Quality |
-|----------|-----|-----------|---------------|-----------------|----------------------|
-{% for p in providers | sort(attribute='name') %}| {{ p.name }} | {{ p.sdk }} | {{ p.auth_setup }} | {{ p.job_complexity }} | {{ p.result_retrieval }} | {{ p.docs_quality }} |
-{% endfor %}
-
-{{ figure("ease_vs_efficiency", "Figure 8.1 — Ease of Use vs. Compression Efficiency") }}
-*Scatter plot. X-axis: compression efficiency (file size at VMAF {{ vmaf_transparent }}). Y-axis: ease-of-use score (based on configuration complexity).*
+**Pricing caveat:** All costs use public list pricing as of {{ config.date }}. Enterprise/volume pricing varies. AWS MediaConvert prices are computed from the published multiplier table × Professional Tier 1 base rate. Brightcove Zencoder no longer publishes a public price list (sales-only quote).
 
 ---
 
-## 7. Pricing Analysis
-
-Encoding cost is only part of the picture. The total cost of ownership includes encoding fees, storage, and delivery. This section compares the economics using public list pricing.
-
-### Encoding cost per minute
-
-| Provider | Pricing Model | Cost per Minute (1080p) | Cost per Minute (4K) | Notes |
-|----------|--------------|------------------------|---------------------|-------|
-{% for p in pricing | sort(attribute='name') %}| {{ p.name }} | {{ p.pricing_model }} | {{ p.cost_per_min_1080p }} | {{ p.cost_per_min_4k }} | {{ p.notes | d("") }} |
-{% endfor %}
-
-### Total cost of ownership: encoding + storage
-
-The real question: when you factor in the smaller file sizes from better compression, does the encoding cost pay for itself in storage savings?
-
-| Scenario: {{ tco_scenario }} | | | | |
-|---|---|---|---|---|
-| Provider | Encoding Cost | Annual Storage Cost | **Total Annual Cost** | **Savings vs. Most Expensive** |
-{% for p in tco | sort(attribute='name') %}| {{ p.name }} | ${{ "{:,.0f}".format(p.encoding_cost) }} | ${{ "{:,.0f}".format(p.storage_cost) }} | **${{ "{:,.0f}".format(p.total_cost) }}** | {{ p.savings }} |
-{% endfor %}
-
-{{ figure("tco_stacked_bar", "Figure 9.1 — Total Cost of Ownership Breakdown") }}
-*Stacked bar chart: encoding cost (bottom) + annual storage cost (top) per provider.*
-
-{{ figure("breakeven", "Figure 9.2 — Break-Even Analysis: Compression Savings vs. Encoding Cost") }}
-*For each provider pair: how many months of storage does it take for the compression-efficient provider's savings to offset any encoding cost premium?*
-
-### Cost per quality point
-
-| Provider | Cost per VMAF Point (at VMAF {{ vmaf_transparent }}) | Cost per GB Saved (vs. baseline) |
-|----------|----------------------------------|----------------------------------|
-{% for p in cost_per_quality | sort(attribute='name') %}| {{ p.name }} | {{ p.cost_per_vmaf_point }} | {{ p.cost_per_gb_saved }} |
-{% endfor %}
-
-**Pricing caveat:** All costs use public list pricing as of {{ config.date }}. Enterprise/volume pricing varies significantly. This analysis is directional, not a substitute for provider quotes at your specific volume.
-
----
-
-## 8. Encoding Speed
+## 7. Encoding Speed
 
 Encoding time is a secondary metric for archival workloads (typically batch-processed), but important for operational planning.
 
@@ -292,10 +244,10 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 9. Recommendations by Use Case
+## 8. Recommendations by Use Case
 {% for v in verticals %}
 
-### 9.{{ loop.index }} {{ v.name }}
+### 8.{{ loop.index }} {{ v.name }}
 {% if v.id == "ecommerce" %}
 **What they need:** The smallest possible product video at VMAF {{ vmaf_transparent }}+ quality. Fine detail (fabric texture, product labels, text overlays) must remain sharp. Storage cost scales with millions of SKUs.
 {%- elif v.id == "ugc" %}
@@ -320,7 +272,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 10. Limitations and Future Work
+## 9. Limitations and Future Work
 
 ### Limitations
 
@@ -342,7 +294,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 11. Conclusions
+## 10. Conclusions
 
 {{ conclusions.headline | d("*To be written after data analysis.*") }}
 
