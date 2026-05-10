@@ -206,40 +206,7 @@ What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours 
 
 ---
 
-## 6. Quality Consistency
-
-Mean VMAF hides transient quality drops. A file scoring VMAF 95 overall but dropping to 72 on scene changes will produce visible artifacts. This section examines quality stability.
-
-### VMAF percentile comparison
-
-{{ figure("vmaf_percentiles", "Figure 6.1 — VMAF Percentile Comparison") }}
-*For each provider at matched bitrate: VMAF mean, 5th percentile, 1st percentile, and minimum. Providers with smaller gaps between mean and minimum deliver more consistent quality.*
-
-### Per-frame VMAF traces
-
-{{ figure("perframe_easy", "Figure 6.2 — Per-Frame VMAF Trace (Representative Easy Clip)") }}
-*Clip: {{ stats.easy_clip | d("TBD") }}. Per-frame VMAF for 3-4 providers overlaid. Shows quality stability on low-complexity content.*
-
-{{ figure("perframe_hard", "Figure 6.3 — Per-Frame VMAF Trace (Representative Hard Clip)") }}
-*Clip: {{ stats.hard_clip | d("TBD") }}. Per-frame VMAF for 3-4 providers overlaid. Shows how providers handle difficult content (high motion, scene changes).*
-
-### Quality consistency matrix
-
-{{ figure("consistency_matrix", "Figure 6.4 — Quality Consistency Matrix") }}
-*Grid of mini sparklines. Rows: test clips. Columns: providers. Each cell shows the per-frame VMAF trace at a glance.*
-
----
-
-## 7. Rate Control Accuracy
-
-For providers that accept quality targets: how well does the encoder hit the requested quality level?
-
-{{ figure("rate_control_accuracy", "Figure 7.1 — Requested vs. Actual Quality") }}
-*Scatter plot of target VMAF vs. actual measured VMAF, per provider. Points on the diagonal hit the target exactly; below the diagonal undershoots, above overshoots.*
-
----
-
-## 8. Ease of Use
+## 6. Ease of Use
 
 Compression efficiency matters, but so does how much effort it takes to achieve it. This section evaluates each provider on what it takes to get optimal quality-per-bit results.
 
@@ -271,7 +238,7 @@ For each provider, the practical steps needed to achieve the best possible file 
 
 ---
 
-## 9. Pricing Analysis
+## 7. Pricing Analysis
 
 Encoding cost is only part of the picture. The total cost of ownership includes encoding fees, storage, and delivery. This section compares the economics using public list pricing.
 
@@ -309,7 +276,7 @@ The real question: when you factor in the smaller file sizes from better compres
 
 ---
 
-## 10. Encoding Speed
+## 8. Encoding Speed
 
 Encoding time is a secondary metric for archival workloads (typically batch-processed), but important for operational planning.
 
@@ -325,10 +292,10 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 11. Recommendations by Use Case
+## 9. Recommendations by Use Case
 {% for v in verticals %}
 
-### 11.{{ loop.index }} {{ v.name }}
+### 9.{{ loop.index }} {{ v.name }}
 {% if v.id == "ecommerce" %}
 **What they need:** The smallest possible product video at VMAF {{ vmaf_transparent }}+ quality. Fine detail (fabric texture, product labels, text overlays) must remain sharp. Storage cost scales with millions of SKUs.
 {%- elif v.id == "ugc" %}
@@ -353,7 +320,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 12. Limitations and Future Work
+## 10. Limitations and Future Work
 
 ### Limitations
 
@@ -375,7 +342,7 @@ Encoding time is a secondary metric for archival workloads (typically batch-proc
 
 ---
 
-## 13. Conclusions
+## 11. Conclusions
 
 {{ conclusions.headline | d("*To be written after data analysis.*") }}
 
