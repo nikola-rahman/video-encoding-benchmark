@@ -777,7 +777,8 @@ def build_providers_context(config: dict) -> list[dict]:
 def build_context(config: dict, report_dir: Path) -> dict:
     """Build the full Jinja2 template context from config and CSV data."""
     # Paths in config are relative to the config file's directory
-    results = load_csv(report_dir / config["data"]["results"])
+    all_results = load_csv(report_dir / config["data"]["results"])
+    results = [r for r in all_results if r.get("converged")]
     clips = load_csv(report_dir / config["data"]["clip_metadata"])
     encoding_times = load_csv(report_dir / config["data"]["encoding_times"])
     pricing_rows = load_csv(report_dir / config["data"]["pricing"])

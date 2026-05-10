@@ -100,6 +100,7 @@ def enrich_result(result: dict, clip_vertical: dict) -> dict:
         "vmaf_p01": vmaf_detail["vmaf_p01"],
         "vmaf_p05": vmaf_detail["vmaf_p05"],
         "compression_ratio": compression_ratio,
+        "converged": bool(result.get("converged")),
     }
 
 
@@ -107,7 +108,7 @@ RESULTS_COLUMNS = [
     "clip", "vertical", "provider", "codec", "target_vmaf", "quality_setting",
     "bitrate_kbps", "file_size_bytes",
     "vmaf_harmonic_mean", "vmaf_min", "vmaf_p01", "vmaf_p05",
-    "compression_ratio",
+    "compression_ratio", "converged",
 ]
 
 
@@ -123,7 +124,7 @@ def run(results_dir: Path, output_dir: Path):
     enriched = [
         enrich_result(r, clip_vertical)
         for r in results
-        if r.get("converged") and r["clip"] in clip_vertical
+        if r["clip"] in clip_vertical
     ]
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +135,8 @@ def run(results_dir: Path, output_dir: Path):
         writer.writeheader()
         writer.writerows(enriched)
 
-    print(f"Results: {len(enriched)} entries -> {results_path}")
+    converged_count = sum(1 for e in enriched if e["converged"])
+    print(f"Results: {len(enriched)} entries ({converged_count} converged) -> {results_path}")
 
 
 if __name__ == "__main__":

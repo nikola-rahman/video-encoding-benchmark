@@ -238,60 +238,79 @@ def gen_aggregate_rd(results, config, figures_dir):
     print(f"  aggregate_rd.png")
 
 
+def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
+    """Plot RD curves with median+IQR for converged + X markers for failed attempts."""
+    has_failed = False
+    for pname in sorted(set(by_pc_converged.keys()) | set(by_pc_failed.keys())):
+        color = get_color(pname)
+
+        for clip, points in by_pc_converged.get(pname, {}).items():
+            points.sort(key=lambda p: p["bitrate_kbps"])
+            ax.plot([p["bitrate_kbps"] for p in points],
+                    [p["vmaf_harmonic_mean"] for p in points],
+                    color=color, alpha=0.15, linewidth=0.8, marker="o", markersize=2)
+
+        by_target = defaultdict(list)
+        for clip, points in by_pc_converged.get(pname, {}).items():
+            for p in points:
+                by_target[p["target_vmaf"]].append((p["bitrate_kbps"], p["vmaf_harmonic_mean"]))
+
+        med_x, med_y, lo_x, hi_x = [], [], [], []
+        for t in sorted(by_target.keys()):
+            br = [p[0] for p in by_target[t]]
+            vm = [p[1] for p in by_target[t]]
+            if len(br) < 2:
+                continue
+            med_x.append(np.median(br))
+            med_y.append(np.median(vm))
+            lo_x.append(np.percentile(br, 25))
+            hi_x.append(np.percentile(br, 75))
+
+        if med_x:
+            ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
+            ax.plot(med_x, med_y, color=color, linewidth=2.5,
+                    marker="o", markersize=7, label=pname,
+                    markeredgecolor="white", markeredgewidth=1)
+
+        # Plot failed attempts as X markers (best-effort points that didn't reach target)
+        failed = by_pc_failed.get(pname, {})
+        if failed:
+            has_failed = True
+            best_per_clip = []
+            for clip, points in failed.items():
+                if not points: continue
+                best = max(points, key=lambda p: p["vmaf_harmonic_mean"])
+                best_per_clip.append((best["bitrate_kbps"], best["vmaf_harmonic_mean"]))
+            if best_per_clip:
+                xs, ys = zip(*best_per_clip)
+                label = pname if pname not in by_pc_converged else None
+                ax.scatter(xs, ys, color=color, marker="x", s=80, linewidths=2,
+                           alpha=0.8, label=label, zorder=5)
+    return has_failed
+
+
 def gen_codec_rd(results, config, figures_dir):
-    """Figures 4.x — Per-codec RD: median+IQR band + transparent per-clip lines."""
+    """Figures 4.x — Per-codec RD: median+IQR + per-clip lines + X for failed attempts."""
     targets = config.get("vmaf_targets", [85, 89, 93])
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
-        # Group: provider -> clip -> [points]
-        by_pc = defaultdict(lambda: defaultdict(list))
+        by_conv = defaultdict(lambda: defaultdict(list))
+        by_failed = defaultdict(lambda: defaultdict(list))
         for r in results:
             if r.get("codec") != codec:
                 continue
             pname = provider_name(r["provider"], config)
-            by_pc[pname][r["clip"]].append(r)
+            target = (by_conv if r.get("converged") else by_failed)
+            target[pname][r["clip"]].append(r)
 
         out_path = figures_dir / f"aggregate_rd_{codec}.png"
-        if not by_pc:
+        if not by_conv and not by_failed:
             plot_placeholder(f"Rate-Distortion — {codec_label} (no data)", out_path)
             continue
 
         fig, ax = plt.subplots(figsize=(11, 7))
-
-        for pname in sorted(by_pc.keys()):
-            color = get_color(pname)
-            # Per-clip thin lines
-            for clip, points in by_pc[pname].items():
-                points.sort(key=lambda p: p["bitrate_kbps"])
-                xs = [p["bitrate_kbps"] for p in points]
-                ys = [p["vmaf_harmonic_mean"] for p in points]
-                ax.plot(xs, ys, color=color, alpha=0.15, linewidth=0.8,
-                        marker="o", markersize=2)
-
-            # Median + IQR band: bin by target_vmaf
-            by_target = defaultdict(list)
-            for clip, points in by_pc[pname].items():
-                for p in points:
-                    by_target[p["target_vmaf"]].append((p["bitrate_kbps"], p["vmaf_harmonic_mean"]))
-
-            sorted_targets = sorted(by_target.keys())
-            med_x, med_y, lo_x, hi_x = [], [], [], []
-            for t in sorted_targets:
-                br = sorted(p[0] for p in by_target[t])
-                vm = sorted(p[1] for p in by_target[t])
-                if len(br) < 2:
-                    continue
-                med_x.append(np.median(br))
-                med_y.append(np.median(vm))
-                lo_x.append(np.percentile(br, 25))
-                hi_x.append(np.percentile(br, 75))
-
-            if med_x:
-                ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
-                ax.plot(med_x, med_y, color=color, linewidth=2.5,
-                        marker="o", markersize=7, label=pname,
-                        markeredgecolor="white", markeredgewidth=1)
+        has_failed = _plot_rd_with_failed(ax, by_conv, by_failed, config)
 
         ax.set_xlabel("Bitrate (kbps)")
         ax.set_ylabel("VMAF (harmonic mean)")
@@ -303,6 +322,10 @@ def gen_codec_rd(results, config, figures_dir):
             ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
             ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                     va="bottom", fontsize=8, color="gray")
+        if has_failed:
+            ax.text(0.02, 0.02, "✕ = did not reach target VMAF (encoder ceiling)",
+                    transform=ax.transAxes, fontsize=8, color="gray",
+                    verticalalignment="bottom")
         fig.tight_layout()
         fig.savefig(out_path)
         plt.close(fig)
@@ -310,57 +333,29 @@ def gen_codec_rd(results, config, figures_dir):
 
 
 def gen_vertical_rd(results, clips, config, figures_dir):
-    """Per-vertical per-codec RD: median+IQR band + transparent per-clip lines."""
+    """Per-vertical per-codec RD with median+IQR + X markers for failed attempts."""
     clip_vertical = {c["clip"]: c["vertical"] for c in clips}
     targets = config.get("vmaf_targets", [85, 89, 93])
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
         for v in config.get("verticals", []):
-            by_pc = defaultdict(lambda: defaultdict(list))
+            by_conv = defaultdict(lambda: defaultdict(list))
+            by_failed = defaultdict(lambda: defaultdict(list))
             for r in results:
                 if r.get("codec") != codec:
                     continue
                 if clip_vertical.get(r["clip"]) != v["id"]:
                     continue
                 pname = provider_name(r["provider"], config)
-                by_pc[pname][r["clip"]].append(r)
+                target = (by_conv if r.get("converged") else by_failed)
+                target[pname][r["clip"]].append(r)
 
-            if not by_pc:
+            if not by_conv and not by_failed:
                 continue
 
             fig, ax = plt.subplots(figsize=(11, 7))
-            for pname in sorted(by_pc.keys()):
-                color = get_color(pname)
-                for clip, points in by_pc[pname].items():
-                    points.sort(key=lambda p: p["bitrate_kbps"])
-                    xs = [p["bitrate_kbps"] for p in points]
-                    ys = [p["vmaf_harmonic_mean"] for p in points]
-                    ax.plot(xs, ys, color=color, alpha=0.2, linewidth=0.8,
-                            marker="o", markersize=2)
-
-                by_target = defaultdict(list)
-                for clip, points in by_pc[pname].items():
-                    for p in points:
-                        by_target[p["target_vmaf"]].append((p["bitrate_kbps"], p["vmaf_harmonic_mean"]))
-
-                med_x, med_y, lo_x, hi_x = [], [], [], []
-                for t in sorted(by_target.keys()):
-                    br = [p[0] for p in by_target[t]]
-                    vm = [p[1] for p in by_target[t]]
-                    if len(br) < 2:
-                        continue
-                    med_x.append(np.median(br))
-                    med_y.append(np.median(vm))
-                    lo_x.append(np.percentile(br, 25))
-                    hi_x.append(np.percentile(br, 75))
-
-                if med_x:
-                    ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
-                    ax.plot(med_x, med_y, color=color, linewidth=2.5,
-                            marker="o", markersize=7, label=pname,
-                            markeredgecolor="white", markeredgewidth=1)
-
+            has_failed = _plot_rd_with_failed(ax, by_conv, by_failed, config)
             ax.set_xlabel("Bitrate (kbps)")
             ax.set_ylabel("VMAF (harmonic mean)")
             ax.set_title(f"RD — {codec_label}, {v['name']}")
@@ -371,6 +366,10 @@ def gen_vertical_rd(results, clips, config, figures_dir):
                 ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
                 ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                         va="bottom", fontsize=8, color="gray")
+            if has_failed:
+                ax.text(0.02, 0.02, "✕ = did not reach target VMAF (encoder ceiling)",
+                        transform=ax.transAxes, fontsize=8, color="gray",
+                        verticalalignment="bottom")
             fig.tight_layout()
             fig.savefig(figures_dir / f"rd_{codec}_{v['id']}.png")
             plt.close(fig)
@@ -1107,7 +1106,8 @@ def generate_all(config_path=DEFAULT_CONFIG):
             f.unlink()
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    results = load_csv(report_dir / config["data"]["results"])
+    all_results = load_csv(report_dir / config["data"]["results"])
+    results = [r for r in all_results if r.get("converged")]
     clips = load_csv(report_dir / config["data"]["clip_metadata"])
     encoding_times = load_csv(report_dir / config["data"]["encoding_times"])
     pricing_rows = load_csv(report_dir / config["data"]["pricing"])
@@ -1120,8 +1120,8 @@ def generate_all(config_path=DEFAULT_CONFIG):
 
     # Data-driven charts
     gen_aggregate_rd(results, config, figures_dir)
-    gen_codec_rd(results, config, figures_dir)
-    gen_vertical_rd(results, clips, config, figures_dir)
+    gen_codec_rd(all_results, config, figures_dir)
+    gen_vertical_rd(all_results, clips, config, figures_dir)
     gen_per_clip_rd(results, config, figures_dir)
     gen_bdrate_bars(results, config, figures_dir)
     gen_si_ti_scatter(clips, config, figures_dir)
