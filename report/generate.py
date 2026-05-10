@@ -253,10 +253,24 @@ def build_codec_summary(results: list[dict], config: dict) -> dict:
         with_fs = [e for e in provider_entries if e["fs_at_target"] is not None]
         ref_entry = min(with_fs, key=lambda e: e["fs_at_target"]) if with_fs else None
 
+        # Group points by clip for per-clip BD-Rate
+        points_by_clip = defaultdict(lambda: defaultdict(list))
+        for r in codec_results:
+            points_by_clip[r["clip"]][r["provider"]].append(r)
+
         for e in provider_entries:
             bdrate = None
-            if ref_entry and e["points"] is not ref_entry["points"]:
-                bdrate = compute_bdrate(ref_entry["points"], e["points"])
+            if ref_entry and e["pid"] != ref_entry["pid"]:
+                per_clip = []
+                for clip, provs in points_by_clip.items():
+                    ref_clip = provs.get(ref_entry["pid"], [])
+                    test_clip = provs.get(e["pid"], [])
+                    if len(ref_clip) >= 2 and len(test_clip) >= 2:
+                        bd = compute_bdrate(ref_clip, test_clip)
+                        if bd is not None:
+                            per_clip.append(bd)
+                if per_clip:
+                    bdrate = round(sum(per_clip) / len(per_clip), 1)
 
             summary[codec].append({
                 "name": e["name"],
@@ -570,16 +584,30 @@ def build_headline_ranking(results: list[dict], config: dict) -> list[dict]:
     providers_with_fs = [p for p in provider_data if p["filesize_at_target_bytes"] is not None]
     if providers_with_fs:
         best = min(providers_with_fs, key=lambda p: p["filesize_at_target_bytes"])
-        ref_points = best["points"]
+        ref_pid = best["pid"]
     else:
-        ref_points = None
+        ref_pid = None
 
-    # Build rows with BD-Rate
+    # Group points by clip for per-clip BD-Rate computation
+    points_by_clip = defaultdict(lambda: defaultdict(list))  # clip -> provider -> points
+    for r in results:
+        points_by_clip[r["clip"]][r["provider"]].append(r)
+
+    # Build rows with BD-Rate (per-clip, then averaged)
     rows = []
     for p in provider_data:
         bdrate = None
-        if ref_points and p["points"] is not ref_points:
-            bdrate = compute_bdrate(ref_points, p["points"])
+        if ref_pid and p["pid"] != ref_pid:
+            per_clip_bdrates = []
+            for clip, provs in points_by_clip.items():
+                ref_clip = provs.get(ref_pid, [])
+                test_clip = provs.get(p["pid"], [])
+                if len(ref_clip) >= 2 and len(test_clip) >= 2:
+                    bd = compute_bdrate(ref_clip, test_clip)
+                    if bd is not None:
+                        per_clip_bdrates.append(bd)
+            if per_clip_bdrates:
+                bdrate = round(sum(per_clip_bdrates) / len(per_clip_bdrates), 1)
 
         fs = p["filesize_at_target_bytes"]
         rows.append({
