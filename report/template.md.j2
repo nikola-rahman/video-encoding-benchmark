@@ -26,8 +26,6 @@
 {{ narratives[codec][vertical_id] | d("*Narrative to be written after data analysis.*") }}
 
 {{ figure(fig_name, "Figure " ~ fig_num ~ " — RD Curves, " ~ codec_label ~ ", " ~ vertical_name ~ " Clips") }}
-
-{{ results_table(vertical_data.get(codec, {}).get(vertical_id, [])) }}
 {%- endmacro %}
 
 {#- ── Report ───────────────────────────────────────────────────── -#}
