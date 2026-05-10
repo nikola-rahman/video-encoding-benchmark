@@ -93,13 +93,6 @@ sources:
 
   # ── Archives ──────────────────────────────────────────────────
 
-  - id: archive_frosted_flakes_1976
-    vertical: archive
-    name: "Kellogg's Frosted Flakes Commercial (1976)"
-    url: "https://archive.org/download/KelloggsSugarFrostedFlakesCereal1976/Kellogg%27s%20Sugar%20Frosted%20Flakes%20Cereal%20%281976%29.ogv"
-    method: http
-    license: "Public Domain"
-
   - id: archive_desoto_1955
     vertical: archive
     name: "DeSoto Car Commercial (1955)"
