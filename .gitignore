@@ -22,3 +22,15 @@ report/data/*
 !report/output/.gitkeep
 !report/figures/.gitkeep
 !report/data/.gitkeep
+
+# Binary / data files never belong in the repo
+*.json
+*.mp4
+*.pdf
+*.html
+
+# But CSVs needed by the report generator are kept
+!report/data/*.csv
+
+# Scratch encoder templates
+template_*.yaml
