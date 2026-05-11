@@ -143,6 +143,31 @@ def resolve_videos(args, config):
     raise ValueError("Either --video or --vertical is required")
 
 
+def load_completed_tasks(results_dir: Path) -> set[tuple]:
+    """Scan all run_*.jsonl files for converged search_complete events.
+
+    Returns the set of (provider, clip_stem, codec, target_vmaf) tuples
+    that have already converged at least once.
+    """
+    completed: set[tuple] = set()
+    for f in sorted(results_dir.glob("run_*.jsonl")):
+        try:
+            with open(f) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        e = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if e.get("event") == "search_complete" and e.get("converged"):
+                        completed.add((e["provider"], e["clip"], e["codec"], float(e["target_vmaf"])))
+        except OSError:
+            continue
+    return completed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run binary quality search")
     parser.add_argument("--provider", required=True, nargs="+", help="Provider name(s)")
@@ -156,6 +181,8 @@ def main():
     parser.add_argument("--vmaf-threads", type=int, default=8, help="VMAF threads per measurement (default: 8)")
     parser.add_argument("--vmaf-workers", type=int, default=8, help="Max concurrent VMAF measurements (default: 8)")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
+    parser.add_argument("--skip-completed", action="store_true",
+                        help="Skip (provider, clip, codec, target) tuples already converged in data/results/run_*.jsonl")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -175,6 +202,21 @@ def main():
         for p in args.provider
         for v in videos
     ]
+
+    if args.skip_completed:
+        completed = load_completed_tasks(Path("data/results"))
+        before = len(tasks)
+        skipped = [(p, v, c, t) for (p, v, c, t) in tasks if (p, v.stem, c, float(t)) in completed]
+        tasks = [(p, v, c, t) for (p, v, c, t) in tasks if (p, v.stem, c, float(t)) not in completed]
+        if skipped:
+            print(f"WARNING: --skip-completed scanned all data/results/run_*.jsonl and is skipping")
+            print(f"         {len(skipped)} of {before} task(s) that already converged at least once.")
+            print(f"         This will use historical results even if they were produced by older")
+            print(f"         code. Review the list below before proceeding.")
+            print()
+            for p, v, c, t in skipped:
+                print(f"  SKIP  {p:<12} {v.stem:<32} {c:<4} v{t}")
+            print()
 
     event_log.log("run_start",
                   providers=args.provider, codecs=args.codec,
