@@ -21,6 +21,8 @@ projection:
 providers:
   - id: bitmovin
     name: "Bitmovin"
+  - id: ffmpeg
+    name: "FFmpeg (self-hosted)"
   - id: mediaconvert
     name: "AWS MediaConvert"
   - id: vidaio

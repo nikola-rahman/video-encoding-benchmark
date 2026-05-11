@@ -2,4 +2,5 @@ provider,name,pricing_model,cost_per_min_1080p_h265,cost_per_min_1080p_av1,cost_
 mediaconvert,AWS MediaConvert,"Tiered, base × codec × resolution × frame-rate multiplier",$0.048,$0.084,$0.096,"Pro Tier 1 base $0.012/normalized-min × multipliers; volume tier discounts at 100K/1M/10M min/region/mo",https://aws.amazon.com/mediaconvert/pricing/
 bitmovin,Bitmovin,"Pay-as-you-go: base × resolution × codec × pass count",$0.100,$0.500,$0.200,"2-pass default; 2000 free min/mo on VOD; AV1 is a 5× surcharge vs HEVC",https://bitmovin.com/encoding-service/vod-encoding-pricing/
 zencoder,Brightcove Zencoder,"Pay-as-you-go ~$0.05/min; best tier $2k/mo for 100K min ($0.020/min)",$0.050,—,—,"AV1 not supported; volume-tier discounts via subscription plans",https://app.zencoder.com/
+ffmpeg,FFmpeg (self-hosted),Self-hosted (your hardware/electricity),-,-,-,"Open-source libx265 / libsvtav1; no list price - cost depends on your infrastructure",https://ffmpeg.org/
 vidaio,Vidaio,"Credit bundles, flat rate (no codec/resolution split)",$0.067,$0.067,$0.067,"$20 bundle = 300 min compression at $0.067/min; smallest $5 bundle is $0.083/min",https://vidaio.io/
