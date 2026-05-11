@@ -37,7 +37,8 @@ class FFmpegProvider(Provider):
         pcfg = config.get("providers", {}).get("ffmpeg", {})
         self.preset_h265 = pcfg.get("preset_h265", "slow")
         self.preset_av1 = pcfg.get("preset_av1", 4)  # SVT-AV1 preset: 0=slowest, 13=fastest
-        self.parallelism = pcfg.get("parallelism", 24)
+        self.parallelism_h265 = pcfg.get("parallelism_h265", 24)
+        self.parallelism_av1 = pcfg.get("parallelism_av1", 8)
 
     # -- Provider interface ------------------------------------------------
 
@@ -125,6 +126,7 @@ class FFmpegProvider(Provider):
 
     def _encode_segments_parallel(self, segments: list[Path], enc_dir: Path, codec: str, crf: float):
         codec_args = self._codec_args(codec, crf)
+        parallelism = self.parallelism_h265 if codec == "h265" else self.parallelism_av1
 
         def encode_one(seg: Path):
             out = enc_dir / f"enc_{seg.name}"
@@ -134,7 +136,7 @@ class FFmpegProvider(Provider):
                 log.error(f"ffmpeg failed on {seg.name}:\n{r.stderr}")
                 raise subprocess.CalledProcessError(r.returncode, cmd, r.stdout, r.stderr)
 
-        with ThreadPoolExecutor(max_workers=self.parallelism) as ex:
+        with ThreadPoolExecutor(max_workers=parallelism) as ex:
             list(ex.map(encode_one, segments))  # raises if any fails
 
     def _codec_args(self, codec: str, crf: float) -> list[str]:
