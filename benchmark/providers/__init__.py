@@ -1,5 +1,6 @@
 from benchmark.providers.bitmovin import BitmovinProvider
 from benchmark.providers.cloudflare import CloudflareProvider
+from benchmark.providers.ffmpeg import FFmpegProvider
 from benchmark.providers.manual import ManualProvider
 from benchmark.providers.mediaconvert import MediaConvertProvider
 from benchmark.providers.mux import MuxProvider
@@ -8,6 +9,7 @@ from benchmark.providers.zencoder import ZencoderProvider
 PROVIDERS = {
     "bitmovin": BitmovinProvider,
     "cloudflare": CloudflareProvider,
+    "ffmpeg": FFmpegProvider,
     "manual": ManualProvider,
     "mediaconvert": MediaConvertProvider,
     "mux": MuxProvider,

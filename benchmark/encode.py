@@ -190,7 +190,16 @@ def main():
     print(f"Log:          {log_path}")
     print()
 
-    with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
+    # Local-encode providers (e.g. ffmpeg) saturate CPU per task and can't run
+    # concurrently like cloud providers (which are network-bound waiting on jobs).
+    local_providers = {"ffmpeg"}
+    if any(p in local_providers for p in args.provider):
+        max_workers = 1
+        print(f"Note: local provider ({', '.join(set(args.provider) & local_providers)}) detected; running tasks serially.")
+    else:
+        max_workers = len(tasks)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {
             pool.submit(
                 run_one_search, pname, config, video, codec,
