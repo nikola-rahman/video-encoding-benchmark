@@ -129,7 +129,10 @@ class FFmpegProvider(Provider):
         def encode_one(seg: Path):
             out = enc_dir / f"enc_{seg.name}"
             cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(seg)] + codec_args + ["-an", str(out)]
-            subprocess.run(cmd, check=True)
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            if r.returncode != 0:
+                log.error(f"ffmpeg failed on {seg.name}:\n{r.stderr}")
+                raise subprocess.CalledProcessError(r.returncode, cmd, r.stdout, r.stderr)
 
         with ThreadPoolExecutor(max_workers=self.parallelism) as ex:
             list(ex.map(encode_one, segments))  # raises if any fails
