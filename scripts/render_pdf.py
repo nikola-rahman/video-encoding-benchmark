@@ -14,6 +14,7 @@ from md2pdf.core import md2pdf
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT = REPO_ROOT / "report" / "output" / "latest" / "report.md"
+DEFAULT_CSS = REPO_ROOT / "report" / "report.css"
 
 
 def main():
@@ -23,7 +24,8 @@ def main():
     if not md_path.exists():
         sys.exit(f"Not found: {md_path}")
 
-    md2pdf(pdf_path, md=md_path, base_url=md_path.parent)
+    css = DEFAULT_CSS if DEFAULT_CSS.exists() else None
+    md2pdf(pdf_path, md=md_path, css=css, base_url=md_path.parent)
     size = pdf_path.stat().st_size
     print(f"Wrote {pdf_path} ({size / 1024:.0f} KB)")
 
