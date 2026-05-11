@@ -68,7 +68,12 @@ class FFmpegProvider(Provider):
         )
 
     def encode_at_quality(self, input_file: Path, codec: str, quality: float, **kwargs) -> EncodingResult:
-        crf = float(quality)
+        if codec == "h265":
+            crf = self.H265_CRF_HI - float(quality)
+        elif codec == "av1":
+            crf = self.AV1_CRF_HI - float(quality)
+        else:
+            raise ValueError(f"Unsupported codec: {codec}")
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         encoding_name = f"ffmpeg_{input_file.stem}_{codec}_crf{crf:.2f}_{timestamp}"
 
