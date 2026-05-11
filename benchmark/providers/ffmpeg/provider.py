@@ -37,7 +37,7 @@ class FFmpegProvider(Provider):
         pcfg = config.get("providers", {}).get("ffmpeg", {})
         self.preset_h265 = pcfg.get("preset_h265", "slow")
         self.preset_av1 = pcfg.get("preset_av1", 4)  # SVT-AV1 preset: 0=slowest, 13=fastest
-        self.parallelism = pcfg.get("parallelism", 32)
+        self.parallelism = pcfg.get("parallelism", 24)
 
     # -- Provider interface ------------------------------------------------
 
