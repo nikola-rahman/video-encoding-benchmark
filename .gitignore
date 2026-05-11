@@ -34,3 +34,6 @@ report/data/*
 
 # Scratch encoder templates
 template_*.yaml
+
+# Old scripts kept locally only
+legacy/
