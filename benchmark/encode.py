@@ -153,7 +153,7 @@ def main():
     parser.add_argument("--vmaf", type=float, required=True, nargs="+", help="Target VMAF score(s)")
     parser.add_argument("--tolerance", type=float, default=1.0, help="VMAF tolerance (default: 1.0)")
     parser.add_argument("--max-steps", type=int, default=8, help="Max search steps (default: 8)")
-    parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads per measurement")
+    parser.add_argument("--vmaf-threads", type=int, default=8, help="VMAF threads per measurement (default: 8)")
     parser.add_argument("--vmaf-workers", type=int, default=8, help="Max concurrent VMAF measurements (default: 8)")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
     args = parser.parse_args()
