@@ -131,9 +131,17 @@ class FFmpegProvider(Provider):
 
     def _codec_args(self, codec: str, crf: float) -> list[str]:
         if codec == "h265":
-            return ["-c:v", "libx265", "-preset", self.preset_h265, "-crf", f"{crf:.2f}"]
+            return [
+                "-c:v", "libx265", "-preset", self.preset_h265,
+                "-crf", f"{crf:.2f}",
+                "-x265-params", "log-level=error",
+            ]
         if codec == "av1":
-            return ["-c:v", "libsvtav1", "-preset", str(self.preset_av1), "-crf", f"{crf:.2f}"]
+            return [
+                "-c:v", "libsvtav1", "-preset", str(self.preset_av1),
+                "-crf", f"{crf:.2f}",
+                "-svtav1-params", "loglevel=1",
+            ]
         raise ValueError(f"Unsupported codec: {codec}")
 
     def _concat(self, encoded_segments: list[Path], out_file: Path):
