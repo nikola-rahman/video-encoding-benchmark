@@ -241,13 +241,7 @@ def gen_aggregate_rd(results, config, figures_dir):
 
 
 def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
-    """Plot RD curves with median+IQR for converged. Failures returned as annotation lines.
-
-    Two annotation categories:
-      - failures: converged=False rows (encoder couldn't reach target at all)
-      - undershoots: converged=True but median achieved VMAF more than tolerance below target
-    """
-    tolerance = 1.0
+    """Plot RD curves with median+IQR for converged. Failures returned as annotation lines."""
     failure_notes = []
     for pname in sorted(set(by_pc_converged.keys()) | set(by_pc_failed.keys())):
         color = get_color(pname)
@@ -273,9 +267,6 @@ def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
             med_y.append(np.median(vm))
             lo_x.append(np.percentile(br, 25))
             hi_x.append(np.percentile(br, 75))
-            median_vmaf = float(np.median(vm))
-            if median_vmaf < t - tolerance:
-                failure_notes.append((pname, color, len(vm), median_vmaf, t, "undershoot"))
 
         if med_x:
             ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
@@ -289,9 +280,13 @@ def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
             for clip, points in failed.items():
                 if points:
                     best_vmafs.append(max(p["vmaf_harmonic_mean"] for p in points))
+                    for p in points:
+                        ax.plot(p["bitrate_kbps"], p["vmaf_harmonic_mean"],
+                                marker="x", color=color, markersize=7,
+                                markeredgewidth=1.5, linestyle="none")
             if best_vmafs:
                 avg_max = sum(best_vmafs) / len(best_vmafs)
-                failure_notes.append((pname, color, len(best_vmafs), avg_max, None, "failure"))
+                failure_notes.append((pname, color, len(best_vmafs), avg_max))
     return failure_notes
 
 
@@ -330,19 +325,9 @@ def gen_codec_rd(results, config, figures_dir):
                     va="bottom", fontsize=8, color="gray")
         ax.set_ylim(min(targets) - 5, 96)
         if failure_notes:
-            failures = [n for n in failure_notes if n[5] == "failure"]
-            undershoots = [n for n in failure_notes if n[5] == "undershoot"]
-            note_lines = []
-            if failures:
-                note_lines.append("Did not reach target VMAF (max achieved):")
-                for pname, color, n, avg_max, _, _ in failures:
-                    note_lines.append(f"  • {pname}: {avg_max:.0f} VMAF on {n} clip(s)")
-            if undershoots:
-                if note_lines:
-                    note_lines.append("")
-                note_lines.append("Converged below target (median achieved):")
-                for pname, color, n, med, t, _ in undershoots:
-                    note_lines.append(f"  • {pname}: target {t:.0f} -> median {med:.1f} on {n} clip(s)")
+            note_lines = ["Did not reach target VMAF (× markers, max achieved):"]
+            for pname, color, n, avg_max in failure_notes:
+                note_lines.append(f"  • {pname}: {avg_max:.1f} VMAF on {n} clip(s)")
             ax.text(0.02, 0.02, "\n".join(note_lines),
                     transform=ax.transAxes, fontsize=8, color="#444",
                     verticalalignment="bottom",
@@ -390,19 +375,9 @@ def gen_vertical_rd(results, clips, config, figures_dir):
                         va="bottom", fontsize=8, color="gray")
             ax.set_ylim(min(targets) - 5, 96)
             if failure_notes:
-                failures = [n for n in failure_notes if n[5] == "failure"]
-                undershoots = [n for n in failure_notes if n[5] == "undershoot"]
-                note_lines = []
-                if failures:
-                    note_lines.append("Did not reach target VMAF (max achieved):")
-                    for pname, color, n, avg_max, _, _ in failures:
-                        note_lines.append(f"  • {pname}: {avg_max:.0f} VMAF on {n} clip(s)")
-                if undershoots:
-                    if note_lines:
-                        note_lines.append("")
-                    note_lines.append("Converged below target (median achieved):")
-                    for pname, color, n, med, t, _ in undershoots:
-                        note_lines.append(f"  • {pname}: target {t:.0f} -> median {med:.1f} on {n} clip(s)")
+                note_lines = ["Did not reach target VMAF (× markers, max achieved):"]
+                for pname, color, n, avg_max in failure_notes:
+                    note_lines.append(f"  • {pname}: {avg_max:.1f} VMAF on {n} clip(s)")
                 ax.text(0.02, 0.02, "\n".join(note_lines),
                         transform=ax.transAxes, fontsize=8, color="#444",
                         verticalalignment="bottom",

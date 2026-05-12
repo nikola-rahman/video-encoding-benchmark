@@ -100,7 +100,7 @@ def enrich_result(result: dict, clip_vertical: dict) -> dict:
         "vmaf_p01": vmaf_detail["vmaf_p01"],
         "vmaf_p05": vmaf_detail["vmaf_p05"],
         "compression_ratio": compression_ratio,
-        "converged": bool(result.get("converged")),
+        "converged": (vmaf_detail["vmaf_harmonic_mean"] or result.get("vmaf_harmonic_mean", 0)) >= result["target_vmaf"],
     }
 
 
