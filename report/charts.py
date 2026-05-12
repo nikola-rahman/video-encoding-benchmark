@@ -190,6 +190,75 @@ def plot_placeholder(title, out_path):
 # ── Chart generators ─────────────────────────────────────────────
 
 
+def gen_target_reach_rate(results, config, figures_dir):
+    """Stacked bar: per (provider, codec), how often the target VMAF was reached,
+    broken down by miss-amplitude when it wasn't.
+    """
+    # Bucket thresholds (VMAF points below target)
+    BUCKETS = [
+        ("Reached target",        "#2e7d32", lambda gap: gap <= 0),
+        ("Missed by < 1",         "#fbc02d", lambda gap: 0 < gap <= 1),
+        ("Missed by 1-3",         "#ef6c00", lambda gap: 1 < gap <= 3),
+        ("Missed by > 3",         "#c62828", lambda gap: gap > 3),
+    ]
+
+    providers = [p["name"] for p in config["providers"]]
+    codecs = sorted(config.get("codecs", []))
+    codec_labels = {"av1": "AV1", "h265": "H.265"}
+
+    # Count per (provider_name, codec, bucket)
+    counts = {(p, c, b[0]): 0 for p in providers for c in codecs for b in BUCKETS}
+    seen_pc = set()
+    for r in results:
+        pname = provider_name(r["provider"], config)
+        codec = r["codec"]
+        if codec not in codecs:
+            continue
+        vmaf = float(r.get("vmaf_harmonic_mean") or 0)
+        target = float(r["target_vmaf"])
+        gap = target - vmaf
+        for label, _, pred in BUCKETS:
+            if pred(gap):
+                counts[(pname, codec, label)] += 1
+                break
+        seen_pc.add((pname, codec))
+
+    fig, axes = plt.subplots(1, len(codecs), figsize=(7 * len(codecs), 5), sharey=True)
+    if len(codecs) == 1:
+        axes = [axes]
+
+    for ax, codec in zip(axes, codecs):
+        x = np.arange(len(providers))
+        bottoms = np.zeros(len(providers))
+        for label, color, _ in BUCKETS:
+            vals = [counts[(p, codec, label)] for p in providers]
+            ax.bar(x, vals, bottom=bottoms, color=color, label=label,
+                   edgecolor="white", linewidth=0.5)
+            bottoms += np.array(vals)
+        # Annotate "not tested" providers
+        for i, p in enumerate(providers):
+            if (p, codec) not in seen_pc:
+                ax.text(i, 1, "n/a", ha="center", va="bottom", fontsize=9, color="#666")
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(providers, rotation=20, ha="right", fontsize=9)
+        ax.set_ylabel("Number of (clip, target) combinations")
+        ax.set_title(f"{codec_labels.get(codec, codec)}")
+        ax.grid(True, axis="y", alpha=0.3)
+        ax.set_axisbelow(True)
+
+    # Single shared legend
+    handles, labels = axes[-1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=len(BUCKETS),
+               fontsize=9, frameon=False, bbox_to_anchor=(0.5, 1.02))
+    fig.suptitle("Target VMAF reach rate by provider (with miss amplitude)",
+                 fontsize=13, y=0.95)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    fig.savefig(figures_dir / "target_reach_rate.png", bbox_inches="tight")
+    plt.close(fig)
+    print(f"  target_reach_rate.png")
+
+
 def gen_aggregate_rd(results, config, figures_dir):
     """Figure 1.1 - Average bitrate by VMAF target, one subplot per codec."""
     benchmark_codecs = sorted(config.get("codecs", []))
@@ -1110,6 +1179,7 @@ def generate_all(config_path=DEFAULT_CONFIG):
     print("Generating figures...")
 
     # Data-driven charts
+    gen_target_reach_rate(all_results, config, figures_dir)
     gen_aggregate_rd(results, config, figures_dir)
     gen_codec_rd(all_results, config, figures_dir)
     gen_vertical_rd(all_results, clips, config, figures_dir)
