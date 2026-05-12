@@ -200,7 +200,9 @@ def gen_target_reach_rate(results, config, figures_dir):
         ("Missed by < 1",         "#fbc02d", lambda gap: 0 < gap <= 1),
         ("Missed by 1-3",         "#ef6c00", lambda gap: 1 < gap <= 3),
         ("Missed by > 3",         "#c62828", lambda gap: gap > 3),
+        ("Encoder failed",        "#424242", None),  # no output produced
     ]
+    FAILED_LABEL = "Encoder failed"
 
     providers = [p["name"] for p in config["providers"]]
     codecs = sorted(config.get("codecs", []))
@@ -218,10 +220,22 @@ def gen_target_reach_rate(results, config, figures_dir):
         target = float(r["target_vmaf"])
         gap = target - vmaf
         for label, _, pred in BUCKETS:
+            if pred is None:
+                continue
             if pred(gap):
                 counts[(pname, codec, label)] += 1
                 break
         seen_pc.add((pname, codec))
+
+    # Fill in "Encoder failed" buckets: full matrix minus rows present.
+    all_clips = sorted(set(r["clip"] for r in results))
+    all_targets = sorted(set(float(r["target_vmaf"]) for r in results))
+    full_matrix = len(all_clips) * len(all_targets)
+    for p in providers:
+        for c in codecs:
+            present = sum(counts[(p, c, b[0])] for b in BUCKETS if b[0] != FAILED_LABEL)
+            if (p, c) in seen_pc:
+                counts[(p, c, FAILED_LABEL)] = max(0, full_matrix - present)
 
     fig, axes = plt.subplots(1, len(codecs), figsize=(7 * len(codecs), 5), sharey=True)
     if len(codecs) == 1:
