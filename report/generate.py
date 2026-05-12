@@ -324,7 +324,7 @@ def build_vertical_data(results: list[dict], clips: list[dict]) -> dict:
     return dict(data)
 
 
-VIDAIO_PER_PASS_S = 120.0
+VIDAIO_PER_PASS_S = 133.0
 
 
 def _iqr_filter(values: list[float]) -> list[float]:
@@ -480,10 +480,11 @@ def build_pricing_data(pricing_rows: list[dict], events: list[dict], config: dic
 def build_storage_projection(results: list[dict], clips: list[dict], config: dict) -> dict:
     """Storage cost projection per (vertical, provider, codec) at one VMAF target.
 
-    Apples-to-apples: per (vertical, codec), restrict to the set of clips
-    covered by every provider, AND require each provider's actual VMAF
-    on that clip to be >= target. Then mean compression ratio across that
-    common set is applied to a representative source.
+    Per (vertical, codec): the comparison set is the intersection of clips
+    every provider produced output for at this target (i.e., every provider
+    has a VMAF measurement for that clip - some may be below target). Each
+    provider's average compression ratio is computed over that common set;
+    below-target rows are included so the comparison is across the same content.
     """
     import numpy as np
     provider_names = build_provider_name_map(config)
@@ -498,50 +499,43 @@ def build_storage_projection(results: list[dict], clips: list[dict], config: dic
     clip_vertical = {c["clip"]: c["vertical"] for c in clips}
     codecs = config.get("codecs", [])
 
-    # Apples-to-apples filter: per (vertical, codec), find clips where
-    # ALL providers tested for that (codec) actually hit the target VMAF.
     by_vertical = defaultdict(list)
     for vertical in {clip_vertical.get(r["clip"]) for r in results if clip_vertical.get(r["clip"])}:
         for codec in codecs:
-            providers_attempted = {
-                r["provider"] for r in results
-                if clip_vertical.get(r["clip"]) == vertical and r["codec"] == codec
-            }
-            if not providers_attempted:
-                continue
-
-            # Per (clip, provider): does the provider hit target on this clip?
-            hit_by_provider = defaultdict(set)  # provider -> set of clips that hit
-            ratio_lookup = {}  # (provider, clip) -> ratio
+            # Per provider, gather all attempted clips (any VMAF) and their compression ratios.
+            attempted_by_provider = defaultdict(set)
+            converged_by_provider = defaultdict(set)
+            ratio_lookup = {}
             for r in results:
                 if (clip_vertical.get(r["clip"]) != vertical or r["codec"] != codec
                         or r.get("target_vmaf") != target_vmaf):
                     continue
-                if (r.get("vmaf_harmonic_mean") or 0) >= target_vmaf and r.get("compression_ratio"):
-                    hit_by_provider[r["provider"]].add(r["clip"])
-                    ratio_lookup[(r["provider"], r["clip"])] = r["compression_ratio"]
+                if r.get("vmaf_harmonic_mean") is None or not r.get("compression_ratio"):
+                    continue
+                attempted_by_provider[r["provider"]].add(r["clip"])
+                ratio_lookup[(r["provider"], r["clip"])] = r["compression_ratio"]
+                if r["vmaf_harmonic_mean"] >= target_vmaf:
+                    converged_by_provider[r["provider"]].add(r["clip"])
 
-            # Common-hit clips: all attempted providers hit the target
-            if not hit_by_provider:
-                continue
-            attempted_who_hit = set(hit_by_provider.keys())
-            if attempted_who_hit != providers_attempted:
-                # At least one provider attempted but never hit target on any clip;
-                # they get excluded from this (vertical, codec) comparison
-                pass
-            common_clips = set.intersection(*hit_by_provider.values()) if hit_by_provider else set()
-            if not common_clips:
+            if not attempted_by_provider:
                 continue
 
-            for pid in providers_attempted & attempted_who_hit:
-                ratios = [ratio_lookup[(pid, c)] for c in common_clips
-                          if (pid, c) in ratio_lookup]
+            # Intersection of attempted: clips every provider produced output for at this target.
+            common = set.intersection(*attempted_by_provider.values())
+            if not common:
+                continue
+
+            universe = set.union(*attempted_by_provider.values())
+            for pid in attempted_by_provider:
+                ratios = [ratio_lookup[(pid, c)] for c in common if (pid, c) in ratio_lookup]
                 if not ratios:
                     continue
                 avg_ratio = float(np.mean(ratios))
                 output_bytes = source_bytes / avg_ratio
                 total_gb = output_bytes / (1024 ** 3)
                 annual_cost = total_gb * cost_per_gb_month * 12
+                # Success rate = converged / attempted universe.
+                success_pct = 100 * len(converged_by_provider.get(pid, set())) / len(universe)
                 by_vertical[vertical].append({
                     "provider": provider_names.get(pid, pid),
                     "codec": "AV1" if codec == "av1" else "H.265",
@@ -549,7 +543,8 @@ def build_storage_projection(results: list[dict], clips: list[dict], config: dic
                     "total_gb": total_gb,
                     "total_tb": total_gb / 1024,
                     "annual_cost": annual_cost,
-                    "n_clips": len(common_clips),
+                    "n_clips": len(common),
+                    "success_pct": success_pct,
                 })
 
     return {
@@ -734,26 +729,30 @@ def build_rec_matrix(results: list[dict], pricing_rows: list[dict], clips: list[
 
 
 def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dict:
-    """Build the headline findings table for one codec, restricted to the
-    common subset of (clip, target) combos covered by all providers tested
-    for this codec. Returns a dict with rows and the subset size.
+    """Build the headline findings table for one codec.
+
+    BD-Rate is computed on the intersection of (clip, target) jobs where
+    every provider converged. The Success column reports each provider's
+    coverage of the FULL test matrix.
     """
     provider_names = build_provider_name_map(config)
 
     codec_results = [r for r in results if r.get("codec") == codec]
     if not codec_results:
-        return {"rows": [], "n_combos": 0}
+        return {"rows": [], "n_jobs": 0, "universe_size": 0}
 
-    # Find (clip, target) combos covered by all providers (in this codec)
+    # Universe and per-provider success counts.
+    all_combos = {(r["clip"], r["target_vmaf"]) for r in codec_results}
+    universe_size = len(all_combos)
     combos_by_provider = defaultdict(set)
     for r in codec_results:
-        combos_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
-    if not combos_by_provider:
-        return {"rows": [], "n_combos": 0}
-    common_combos = set.intersection(*combos_by_provider.values())
+        if r.get("converged"):
+            combos_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+    success_by_provider = {p: len(s) for p, s in combos_by_provider.items()}
 
-    # Filter to common subset
-    common = [r for r in codec_results if (r["clip"], r["target_vmaf"]) in common_combos]
+    # Intersection: jobs every provider converged on.
+    common_combos = set.intersection(*combos_by_provider.values()) if combos_by_provider else set()
+    common = [r for r in codec_results if (r["clip"], r["target_vmaf"]) in common_combos and r.get("converged")]
 
     by_provider = defaultdict(list)
     for r in common:
@@ -762,21 +761,16 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
     provider_data = []
     for pid, data in by_provider.items():
         vmaf_vals = [r["vmaf_harmonic_mean"] for r in data if r.get("vmaf_harmonic_mean")]
-        cr_vals = [r["compression_ratio"] for r in data if r.get("compression_ratio")]
         provider_data.append({
             "pid": pid,
             "name": provider_names.get(pid, pid),
             "vmaf_avg": sum(vmaf_vals) / len(vmaf_vals) if vmaf_vals else None,
             "points": data,
-            "compression_ratio": sum(cr_vals) / len(cr_vals) if cr_vals else None,
+            "success": success_by_provider.get(pid, 0),
         })
 
-    providers_with_cr = [p for p in provider_data if p["compression_ratio"] is not None]
-    if providers_with_cr:
-        best = max(providers_with_cr, key=lambda p: p["compression_ratio"])
-        ref_pid = best["pid"]
-    else:
-        ref_pid = None
+    # Reference is always FFmpeg (open-source baseline).
+    ref_pid = "ffmpeg" if any(p["pid"] == "ffmpeg" for p in provider_data) else None
 
     points_by_clip = defaultdict(lambda: defaultdict(list))
     for r in common:
@@ -797,31 +791,24 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
             if per_clip_bdrates:
                 bdrate = round(sum(per_clip_bdrates) / len(per_clip_bdrates), 1)
 
-        cr = p["compression_ratio"]
         is_ref = (ref_pid is not None and p["pid"] == ref_pid)
         rows.append({
             "name": p["name"],
             "vmaf_avg": p["vmaf_avg"],
             "bdrate": f"+{bdrate}%" if bdrate and bdrate > 0 else f"{bdrate}%" if bdrate else "ref",
             "bdrate_value": bdrate,
+            "success": p["success"],
+            "success_pct": (p["success"] / universe_size * 100) if universe_size else 0,
             "is_ref": is_ref,
             "rank": 0,
         })
 
-    # Rank by BD-Rate: the reference encoder is rank 1, then ascending bdrate_value.
-    ranked_others = sorted(
-        [r for r in rows if r.get("bdrate_value") is not None],
-        key=lambda r: r["bdrate_value"],
-    )
-    next_rank = 1
-    for r in rows:
-        if r.get("is_ref"):
-            r["rank"] = 1
-            next_rank = 2
-            break
-    for r in ranked_others:
-        r["rank"] = next_rank
-        next_rank += 1
+    # Rank strictly by BD-Rate (ascending; ref counts as 0). A negative BD-Rate
+    # outranks the reference; a positive one ranks below.
+    rankable = [r for r in rows if r.get("bdrate_value") is not None or r.get("is_ref")]
+    rankable.sort(key=lambda r: 0.0 if r.get("is_ref") else r["bdrate_value"])
+    for i, r in enumerate(rankable):
+        r["rank"] = i + 1
     for r in rows:
         if r["rank"] == 0:
             r["rank"] = "-"
@@ -833,10 +820,13 @@ def build_headline_ranking(results: list[dict], config: dict, codec: str) -> dic
                 "name": p["name"],
                 "vmaf_avg": None,
                 "bdrate": "-",
+                "success": 0,
+                "success_pct": 0,
+                "bdrate_basis": 0,
                 "rank": "-",
             })
 
-    return {"rows": rows, "n_combos": len(common_combos)}
+    return {"rows": rows, "universe_size": universe_size, "n_jobs": len(common_combos)}
 
 
 def build_per_vertical_bdrate(all_results: list[dict], clips: list[dict], config: dict) -> dict:

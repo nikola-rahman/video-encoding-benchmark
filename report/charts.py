@@ -190,7 +190,7 @@ def plot_placeholder(title, out_path):
 # ── Chart generators ─────────────────────────────────────────────
 
 
-def gen_target_reach_rate(results, config, figures_dir):
+def gen_target_success_rate(results, config, figures_dir):
     """Stacked bar: per (provider, codec), how often the target VMAF was reached,
     broken down by miss-amplitude when it wasn't.
     """
@@ -265,45 +265,122 @@ def gen_target_reach_rate(results, config, figures_dir):
     handles, labels = axes[-1].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(BUCKETS),
                fontsize=9, frameon=False, bbox_to_anchor=(0.5, 1.02))
-    fig.suptitle("Target VMAF reach rate by provider (with miss amplitude)",
+    fig.suptitle("Target VMAF success rate by provider (with miss amplitude)",
                  fontsize=13, y=0.95)
     fig.tight_layout(rect=[0, 0, 1, 0.93])
-    fig.savefig(figures_dir / "target_reach_rate.png", bbox_inches="tight")
+    fig.savefig(figures_dir / "target_success_rate.png", bbox_inches="tight")
     plt.close(fig)
-    print(f"  target_reach_rate.png")
+    print(f"  target_success_rate.png")
+
+
+def _intersection_and_success(rows, codec, clip_filter=None, near_target_tolerance=None, attempted=False):
+    """Returns (intersection_rows, intersection_set, success_pct_per_provider, universe_size).
+
+    Restricts to rows in the given codec (and optionally a clip set). The
+    intersection is over (clip, target) combinations where every provider with
+    any converged row in scope succeeded. Success rate is each provider's converged
+    coverage of the universe (full matrix in scope), not the intersection.
+    """
+    # If near_target_tolerance is given, intersection is over jobs every provider
+    # got within that many VMAF points of target (i.e. vmaf >= target - tol).
+    # If None (default), intersection is over converged jobs only (vmaf >= target).
+    # The intersection rows returned include all rows in the intersection set
+    # regardless of whether each one is converged.
+    scoped = [r for r in rows if r.get("codec") == codec]
+    if clip_filter is not None:
+        scoped = [r for r in scoped if r["clip"] in clip_filter]
+    universe = {(r["clip"], r["target_vmaf"]) for r in scoped}
+
+    qualifying_by_provider = defaultdict(set)
+    if attempted:
+        # Any job that produced VMAF output (regardless of score) qualifies.
+        for r in scoped:
+            if r.get("vmaf_harmonic_mean") is not None:
+                qualifying_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+    elif near_target_tolerance is None:
+        # Converged-only: intersection = clips where every provider hit target.
+        for r in scoped:
+            if r.get("converged"):
+                qualifying_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+    else:
+        tol = float(near_target_tolerance)
+        for r in scoped:
+            v = r.get("vmaf_harmonic_mean")
+            if v is None:
+                continue
+            if float(v) >= float(r["target_vmaf"]) - tol:
+                qualifying_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+
+    sets = [s for s in qualifying_by_provider.values()]
+    intersection = set.intersection(*sets) if sets else set()
+    intersection_rows = [r for r in scoped
+                         if (r["clip"], r["target_vmaf"]) in intersection
+                         and r.get("vmaf_harmonic_mean") is not None]
+    # success_pct unchanged: based on converged (vmaf >= target), not on near-target.
+    converged_by_provider = defaultdict(set)
+    attempts_by_provider = defaultdict(set)
+    for r in scoped:
+        if r.get("vmaf_harmonic_mean") is not None:
+            attempts_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+        if r.get("converged"):
+            converged_by_provider[r["provider"]].add((r["clip"], r["target_vmaf"]))
+    success_pct = {
+        p: 100 * len(converged_by_provider.get(p, set())) / len(universe) if universe else 0
+        for p in attempts_by_provider
+    }
+    return intersection_rows, intersection, success_pct, len(universe)
+
+
+def _success_label(pname_or_pid, success_pct, config):
+    """Format a legend label including the provider's success-rate percentage."""
+    pname = provider_name(pname_or_pid, config) if pname_or_pid in {p["id"] for p in config["providers"]} else pname_or_pid
+    pct = None
+    if pname_or_pid in success_pct:
+        pct = success_pct[pname_or_pid]
+    else:
+        for k, v in success_pct.items():
+            if provider_name(k, config) == pname_or_pid:
+                pct = v
+                break
+    if pct is None:
+        return pname
+    return f"{pname} ({pct:.0f}% success)"
 
 
 def gen_aggregate_rd(results, config, figures_dir):
-    """Figure 1.1 - Average bitrate by VMAF target, one subplot per codec."""
+    """Figure 1.2 - Average bitrate by VMAF target, one subplot per codec.
+    Restricted to the intersection (clips every provider converged on).
+    Success-rate annotation is overlaid so it survives screenshotting.
+    """
     benchmark_codecs = sorted(config.get("codecs", []))
     codec_labels = {"av1": "AV1", "h265": "H.265"}
-
-    # Group by (provider_name, codec, target_vmaf) → list of bitrates
-    by_key = defaultdict(list)
-    for r in results:
-        if r.get("codec") not in benchmark_codecs:
-            continue
-        pname = provider_name(r["provider"], config)
-        by_key[(pname, r["codec"], r["target_vmaf"])].append(r["bitrate_kbps"])
-
-    avg = {k: np.mean(v) for k, v in by_key.items()}
-    targets = sorted(set(t for _, _, t in avg.keys()))
 
     fig, axes = plt.subplots(1, len(benchmark_codecs), figsize=(6 * len(benchmark_codecs), 6), sharey=True)
     if len(benchmark_codecs) == 1:
         axes = [axes]
 
     for ax, codec in zip(axes, benchmark_codecs):
-        providers = sorted(set(p for p, c, t in avg.keys() if c == codec))
+        intersection_rows, intersection_set, success_pct, universe_size = _intersection_and_success(
+            results, codec
+        )
+        by_key = defaultdict(list)
+        for r in intersection_rows:
+            pname = provider_name(r["provider"], config)
+            by_key[(pname, r["target_vmaf"])].append(r["bitrate_kbps"])
+        avg = {k: np.mean(v) for k, v in by_key.items()}
+        targets = sorted(set(t for _, t in avg.keys()))
+        providers = sorted(set(p for p, _ in avg.keys()))
+
         x = np.arange(len(targets))
         n = len(providers)
         width = 0.8 / max(n, 1)
 
         for i, pname in enumerate(providers):
             color = get_color(pname)
-            vals = [avg.get((pname, codec, t), 0) for t in targets]
+            vals = [avg.get((pname, t), 0) for t in targets]
             offset = (i - n / 2 + 0.5) * width
-            bars = ax.bar(x + offset, vals, width, label=pname, color=color)
+            label = _success_label(pname, success_pct, config)
+            bars = ax.bar(x + offset, vals, width, label=label, color=color)
             for bar, val in zip(bars, vals):
                 if val > 0:
                     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 10,
@@ -311,21 +388,25 @@ def gen_aggregate_rd(results, config, figures_dir):
 
         ax.set_xticks(x)
         ax.set_xticklabels([f"VMAF {int(t)}" for t in targets])
-        ax.set_title(codec_labels.get(codec, codec))
-        ax.legend(fontsize=8)
+        ax.set_title(f"{codec_labels.get(codec, codec)} - intersection: {len(intersection_set)}/{universe_size} jobs")
+        ax.legend(fontsize=8, loc="upper left")
         ax.grid(axis="y", alpha=0.3)
 
     axes[0].set_ylabel("Average Bitrate (kbps)")
-    fig.suptitle("Average Bitrate by VMAF Target (lower is better)", fontsize=13)
+    fig.suptitle("Average Bitrate by VMAF Target (intersection only; lower is better)", fontsize=13)
     fig.tight_layout()
     fig.savefig(figures_dir / "aggregate_rd.png")
     plt.close(fig)
     print(f"  aggregate_rd.png")
 
 
-def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
-    """Plot RD curves with median+IQR for converged. Failures returned as annotation lines."""
+def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config, success_pct=None):
+    """Plot RD curves: faded per-clip lines + solid median curve + IQR band.
+    If success_pct is provided, legend labels include each provider's success rate,
+    and providers with no plotted curve are still added to the legend at 0%.
+    """
     failure_notes = []
+    plotted_names = set()
     for pname in sorted(set(by_pc_converged.keys()) | set(by_pc_failed.keys())):
         color = get_color(pname)
 
@@ -353,52 +434,56 @@ def _plot_rd_with_failed(ax, by_pc_converged, by_pc_failed, config):
 
         if med_x:
             ax.fill_betweenx(med_y, lo_x, hi_x, color=color, alpha=0.18)
+            legend_label = _success_label(pname, success_pct, config) if success_pct is not None else pname
             ax.plot(med_x, med_y, color=color, linewidth=2.5,
-                    marker="o", markersize=7, label=pname,
+                    marker="o", markersize=7, label=legend_label,
+                    markeredgecolor="white", markeredgewidth=1)
+            plotted_names.add(pname)
+
+    if success_pct:
+        for pid_or_name, pct in success_pct.items():
+            pname = provider_name(pid_or_name, config) if pid_or_name in {p["id"] for p in config["providers"]} else pid_or_name
+            if pname in plotted_names:
+                continue
+            color = get_color(pname)
+            ax.plot([], [], color=color, linewidth=2.5, marker="o", markersize=7,
+                    label=_success_label(pid_or_name, success_pct, config),
                     markeredgecolor="white", markeredgewidth=1)
 
-        failed = by_pc_failed.get(pname, {})
-        if failed:
-            best_vmafs = []
-            for clip, points in failed.items():
-                if points:
-                    best_vmafs.append(max(p["vmaf_harmonic_mean"] for p in points))
-                    for p in points:
-                        ax.plot(p["bitrate_kbps"], p["vmaf_harmonic_mean"],
-                                marker="x", color=color, markersize=7,
-                                markeredgewidth=1.5, linestyle="none")
-            if best_vmafs:
-                avg_max = sum(best_vmafs) / len(best_vmafs)
-                failure_notes.append((pname, color, len(best_vmafs), avg_max))
     return failure_notes
 
 
 def gen_codec_rd(results, config, figures_dir):
-    """Figures 4.x - Per-codec RD: median+IQR + per-clip lines + X for failed attempts."""
+    """Figures 4.x - Per-codec RD: median+IQR on the attempted-intersection.
+
+    Intersection = jobs every provider produced output for (regardless of
+    whether they hit target). Includes below-target rows. Excludes jobs
+    where any provider had no output (e.g. portrait-4K encoder reject).
+    """
     targets = config.get("vmaf_targets", [85, 89, 93])
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
+        intersection_rows, intersection_set, success_pct, universe_size = _intersection_and_success(
+            results, codec, attempted=True
+        )
+
         by_conv = defaultdict(lambda: defaultdict(list))
-        by_failed = defaultdict(lambda: defaultdict(list))
-        for r in results:
-            if r.get("codec") != codec:
-                continue
+        for r in intersection_rows:
             pname = provider_name(r["provider"], config)
-            target = (by_conv if r.get("converged") else by_failed)
-            target[pname][r["clip"]].append(r)
+            by_conv[pname][r["clip"]].append(r)
 
         out_path = figures_dir / f"aggregate_rd_{codec}.png"
-        if not by_conv and not by_failed:
+        if not by_conv:
             plot_placeholder(f"Rate-Distortion - {codec_label} (no data)", out_path)
             continue
 
         fig, ax = plt.subplots(figsize=(11, 7))
-        failure_notes = _plot_rd_with_failed(ax, by_conv, by_failed, config)
+        _plot_rd_with_failed(ax, by_conv, {}, config, success_pct=success_pct)
 
         ax.set_xlabel("Bitrate (kbps)")
         ax.set_ylabel("VMAF (harmonic mean)")
-        ax.set_title(f"Rate-Distortion - {codec_label}")
+        ax.set_title(f"Rate-Distortion - {codec_label} (intersection of attempted: {len(intersection_set)}/{universe_size} jobs)")
         ax.set_xscale("log")
         ax.legend(fontsize=10, loc="lower right")
         ax.grid(True, alpha=0.3, which="both")
@@ -406,16 +491,7 @@ def gen_codec_rd(results, config, figures_dir):
             ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
             ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                     va="bottom", fontsize=8, color="gray")
-        ax.set_ylim(min(targets) - 5, 96)
-        if failure_notes:
-            note_lines = ["Did not reach target VMAF (× markers, max achieved):"]
-            for pname, color, n, avg_max in failure_notes:
-                note_lines.append(f"  • {pname}: {avg_max:.1f} VMAF on {n} clip(s)")
-            ax.text(0.02, 0.02, "\n".join(note_lines),
-                    transform=ax.transAxes, fontsize=8, color="#444",
-                    verticalalignment="bottom",
-                    bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
-                              edgecolor="#bbb", alpha=0.9))
+        ax.set_ylim(82, 96)
         fig.tight_layout()
         fig.savefig(out_path)
         plt.close(fig)
@@ -423,32 +499,31 @@ def gen_codec_rd(results, config, figures_dir):
 
 
 def gen_vertical_rd(results, clips, config, figures_dir):
-    """Per-vertical per-codec RD with median+IQR + X markers for failed attempts."""
+    """Per-vertical per-codec RD with median+IQR on intersection + failed × markers."""
     clip_vertical = {c["clip"]: c["vertical"] for c in clips}
     targets = config.get("vmaf_targets", [85, 89, 93])
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
         for v in config.get("verticals", []):
-            by_conv = defaultdict(lambda: defaultdict(list))
-            by_failed = defaultdict(lambda: defaultdict(list))
-            for r in results:
-                if r.get("codec") != codec:
-                    continue
-                if clip_vertical.get(r["clip"]) != v["id"]:
-                    continue
-                pname = provider_name(r["provider"], config)
-                target = (by_conv if r.get("converged") else by_failed)
-                target[pname][r["clip"]].append(r)
+            vertical_clips = {c["clip"] for c in clips if c.get("vertical") == v["id"]}
+            intersection_rows, intersection_set, success_pct, universe_size = _intersection_and_success(
+                results, codec, clip_filter=vertical_clips, attempted=True
+            )
 
-            if not by_conv and not by_failed:
+            by_conv = defaultdict(lambda: defaultdict(list))
+            for r in intersection_rows:
+                pname = provider_name(r["provider"], config)
+                by_conv[pname][r["clip"]].append(r)
+
+            if not by_conv:
                 continue
 
             fig, ax = plt.subplots(figsize=(11, 7))
-            failure_notes = _plot_rd_with_failed(ax, by_conv, by_failed, config)
+            _plot_rd_with_failed(ax, by_conv, {}, config, success_pct=success_pct)
             ax.set_xlabel("Bitrate (kbps)")
             ax.set_ylabel("VMAF (harmonic mean)")
-            ax.set_title(f"RD - {codec_label}, {v['name']}")
+            ax.set_title(f"RD - {codec_label}, {v['name']} (intersection of attempted: {len(intersection_set)}/{universe_size} jobs)")
             ax.set_xscale("log")
             ax.legend(fontsize=10, loc="lower right")
             ax.grid(True, alpha=0.3, which="both")
@@ -456,16 +531,7 @@ def gen_vertical_rd(results, clips, config, figures_dir):
                 ax.axhline(y=target, color="gray", linestyle="--", alpha=0.4, linewidth=1)
                 ax.text(ax.get_xlim()[1], target + 0.2, f"VMAF {target}", ha="right",
                         va="bottom", fontsize=8, color="gray")
-            ax.set_ylim(min(targets) - 5, 96)
-            if failure_notes:
-                note_lines = ["Did not reach target VMAF (× markers, max achieved):"]
-                for pname, color, n, avg_max in failure_notes:
-                    note_lines.append(f"  • {pname}: {avg_max:.1f} VMAF on {n} clip(s)")
-                ax.text(0.02, 0.02, "\n".join(note_lines),
-                        transform=ax.transAxes, fontsize=8, color="#444",
-                        verticalalignment="bottom",
-                        bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
-                                  edgecolor="#bbb", alpha=0.9))
+            ax.set_ylim(82, 96)
             fig.tight_layout()
             fig.savefig(figures_dir / f"rd_{codec}_{v['id']}.png")
             plt.close(fig)
@@ -516,38 +582,39 @@ def gen_storage_savings_bar(results, config, figures_dir):
 
 
 def gen_bdrate_bars(results, config, figures_dir):
-    """BD-Rate bar charts per codec, computed per-clip and averaged."""
+    """BD-Rate bar charts per codec on the intersection of attempted jobs
+    (clips every provider produced output for). Reference = FFmpeg.
+    Per-clip BD-Rate, averaged across the intersection."""
     from report.generate import compute_bdrate
 
     for codec in config.get("codecs", []):
         codec_label = "AV1" if codec == "av1" else "H.265"
-        by_provider = defaultdict(list)
-        for r in results:
-            if r.get("codec") == codec:
-                by_provider[r["provider"]].append(r)
-
-        # Reference = provider with smallest avg compression-ratio-equivalent
-        # (use median bitrate at the highest common VMAF target as proxy)
-        provider_avg_br = {}
-        for pid, data in by_provider.items():
-            brs = [r["bitrate_kbps"] for r in data if r.get("bitrate_kbps")]
-            if brs:
-                provider_avg_br[pid] = sum(brs) / len(brs)
-        if not provider_avg_br:
+        intersection_rows, intersection_set, success_pct, universe_size = _intersection_and_success(
+            results, codec, attempted=True
+        )
+        if not intersection_rows:
             continue
-        ref_pid = min(provider_avg_br, key=provider_avg_br.get)
 
-        # Group by clip for per-clip BD-Rate
+        by_provider = defaultdict(list)
+        for r in intersection_rows:
+            by_provider[r["provider"]].append(r)
+
+        ref_pid = "ffmpeg" if "ffmpeg" in by_provider else None
+        if ref_pid is None:
+            continue
+
         points_by_clip = defaultdict(lambda: defaultdict(list))
-        for r in results:
-            if r.get("codec") == codec:
-                points_by_clip[r["clip"]][r["provider"]].append(r)
+        for r in intersection_rows:
+            points_by_clip[r["clip"]][r["provider"]].append(r)
 
         labels, values = [], []
         for pid, data in sorted(by_provider.items()):
             pname = provider_name(pid, config)
+            success_str = f"{success_pct.get(pid, 0):.0f}% success"
+            label_suffix = " (ref)" if pid == ref_pid else ""
+            full_label = f"{pname} ({success_str}){label_suffix}"
             if pid == ref_pid:
-                labels.append(f"{pname} (ref)")
+                labels.append(full_label)
                 values.append(0)
             else:
                 per_clip = []
@@ -559,19 +626,19 @@ def gen_bdrate_bars(results, config, figures_dir):
                         if bd is not None:
                             per_clip.append(bd)
                 if per_clip:
-                    labels.append(pname)
+                    labels.append(full_label)
                     values.append(round(sum(per_clip) / len(per_clip), 1))
 
         if labels:
-            fig, ax = plt.subplots(figsize=(9, max(4, len(labels) * 0.8)))
+            fig, ax = plt.subplots(figsize=(10, max(4, len(labels) * 0.8)))
             colors = ["#2ca02c" if v <= 0 else "#d62728" for v in values]
             bars = ax.barh(labels, values, color=colors, edgecolor="white")
             for bar, val in zip(bars, values):
                 ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2,
                         f"{val:+.1f}%", va="center", fontsize=9)
             ax.axvline(x=0, color="black", linewidth=0.8)
-            ax.set_xlabel("BD-Rate (%)")
-            ax.set_title(f"BD-Rate - {codec_label} (lower is better)")
+            ax.set_xlabel("BD-Rate vs FFmpeg (%)")
+            ax.set_title(f"BD-Rate vs FFmpeg - {codec_label} (intersection of attempted: {len(intersection_set)}/{universe_size} jobs; lower is better)")
             ax.invert_yaxis()
             fig.tight_layout()
             fig.savefig(figures_dir / f"bdrate_bar_{codec}.png")
@@ -672,6 +739,46 @@ def gen_encoding_speed(encoding_times, config, figures_dir):
 
     plot_bar(labels, values, "Encoding Speed (× real-time)", "Speed (× real-time)",
              figures_dir / "encoding_speed.png")
+
+
+def gen_encoding_speed_total(speed_summary, config, figures_dir):
+    """Figure 7.1 - Total wall-clock to a converged target per (provider, codec)."""
+    codecs = sorted({s["codec"] for s in speed_summary})
+    if not codecs:
+        return
+    codec_labels = {"av1": "AV1", "h265": "H.265"}
+    providers = sorted({s["name"] for s in speed_summary})
+
+    by_pc = {(s["name"], s["codec"]): s["avg_total_s"] for s in speed_summary}
+
+    fig, ax = plt.subplots(figsize=(11, max(4, len(providers) * 0.6)))
+    y = np.arange(len(providers))
+    n = len(codecs)
+    height = 0.8 / max(n, 1)
+
+    for i, codec in enumerate(codecs):
+        offset = (i - n / 2 + 0.5) * height
+        vals = [by_pc.get((p, codec), 0) for p in providers]
+        codec_color = {"av1": "#56B4E9", "h265": "#E69F00"}.get(codec, "#888")
+        bars = ax.barh(y + offset, vals, height, label=codec_labels.get(codec, codec),
+                       color=codec_color, edgecolor="white")
+        for bar, v in zip(bars, vals):
+            if v > 0:
+                ax.text(bar.get_width() + max(vals) * 0.01,
+                        bar.get_y() + bar.get_height() / 2,
+                        f"{v:.0f}s", va="center", fontsize=9)
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(providers)
+    ax.invert_yaxis()
+    ax.set_xlabel("Average total wall-clock to target VMAF (seconds)")
+    ax.set_title("Total time to converge per provider (lower is better)")
+    ax.legend(fontsize=10)
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(figures_dir / "encoding_speed_total.png")
+    plt.close(fig)
+    print("  encoding_speed_total.png")
 
 
 def gen_tco_stacked(results, pricing_rows, config, figures_dir):
@@ -1142,11 +1249,11 @@ def gen_storage_projection(results, clips, config, figures_dir):
         bars = ax.bar(range(len(entries)), costs, color=colors, edgecolor="white", linewidth=0.5)
         for bar, e in zip(bars, entries):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                    f"${e['annual_cost']:,.0f}\n({e['total_tb']:.1f} TB)",
+                    f"${e['annual_cost']:,.0f}\n({e['total_tb']:.2f} TB)",
                     ha="center", va="bottom", fontsize=8)
         ax.axhline(y=baseline_cost, color="#888", linestyle="--", linewidth=1.2)
         ax.text(len(entries) - 0.5, baseline_cost,
-                f"  no re-encoding: ${baseline_cost:,.0f} ({baseline_tb:.1f} TB)",
+                f"  no re-encoding: ${baseline_cost:,.0f} ({baseline_tb:.2f} TB)",
                 color="#444", fontsize=8, va="center", ha="right",
                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white",
                           edgecolor="#bbb", alpha=0.9))
@@ -1193,17 +1300,27 @@ def generate_all(config_path=DEFAULT_CONFIG):
     print("Generating figures...")
 
     # Data-driven charts
-    gen_target_reach_rate(all_results, config, figures_dir)
+    gen_target_success_rate(all_results, config, figures_dir)
     gen_aggregate_rd(results, config, figures_dir)
     gen_codec_rd(all_results, config, figures_dir)
     gen_vertical_rd(all_results, clips, config, figures_dir)
     gen_per_clip_rd(results, config, figures_dir)
-    gen_bdrate_bars(results, config, figures_dir)
+    gen_bdrate_bars(all_results, config, figures_dir)
     gen_si_ti_scatter(clips, config, figures_dir)
     gen_vmaf_percentiles(results, config, figures_dir)
     gen_encoding_speed(encoding_times, config, figures_dir)
+    # Figure 7.1 - total wall-clock per provider (uses speed_summary from generate.py)
+    import json, glob
+    jsonl_events = []
+    jsonl_dir = report_dir.parent / "data" / "results"
+    for f in sorted(jsonl_dir.glob("*.jsonl")):
+        with open(f) as fh:
+            for line in fh:
+                if line.strip():
+                    jsonl_events.append(json.loads(line))
+    from report.generate import build_speed_summary
+    gen_encoding_speed_total(build_speed_summary(jsonl_events, config), config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
-    gen_codec_comparison(results, config, figures_dir)
     gen_storage_projection(results, clips, config, figures_dir)
 
     # Charts from extended data (per-frame VMAF, iframe)

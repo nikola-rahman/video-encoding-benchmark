@@ -62,33 +62,28 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 
 ### Headline findings
 
-Each table below is restricted to the (clip, target VMAF) combinations covered by **all providers tested for that codec**, so comparisons are apples-to-apples.
+**BD-Rate** is computed on the *intersection* — the (clip, target VMAF) jobs where **every provider** in that codec converged. Reference is **FFmpeg** (the open-source baseline; negative BD-Rate means the provider uses fewer bits than FFmpeg at matched quality).
 
-#### Sample selection
+**Success** is each provider's coverage of the **full** test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} jobs) — the fraction of jobs where the provider reached the target VMAF. Read together with BD-Rate.
 
-The full test matrix is **{{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} combinations per provider**. The headline tables show only the **intersection** — combinations where every provider in that codec's column converged. Excluded combinations fall into two categories:
+H.265 intersection: **{{ headline_h265.n_jobs }} / {{ headline_h265.universe_size }} jobs**. AV1 intersection: **{{ headline_av1.n_jobs }} / {{ headline_av1.universe_size }} jobs**.
 
-- **Archive failures**: the cloud providers (Bitmovin, AWS MediaConvert, Brightcove Zencoder) cannot reach the lowest VMAF target (85) on grainy historical film - their encoders top out around VMAF 58 regardless of bitrate. All 5 archive clips × 3 VMAF targets = 15 combinations are dropped from the intersection on this basis.
-- **Portrait 4K and edge cases**: MediaConvert AV1 does not support portrait 4K aspect ratios; a few clip/target combinations exceeded the search-step budget on specific providers (e.g. Vidaio on `ugc_macbook_painting` and `ugc_rare_photos` for some targets).
+#### H.265
 
-After both exclusions, the apples-to-apples test set used throughout the report contains **{{ headline_h265.n_combos }} H.265 combinations** and **{{ headline_av1.n_combos }} AV1 combinations**.
-
-#### H.265 ({{ headline_h265.n_combos }} (clip, target) combos)
-
-| Provider | Avg VMAF | BD-Rate vs. Best | Rank |
-|----------|----------|------------------|------|
-{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
+| Provider | Avg VMAF | Success | BD-Rate vs. FFmpeg | Rank |
+|----------|----------|-------|---------------------|------|
+{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.success }} / {{ headline_h265.universe_size }} ({{ "%.0f" | format(p.success_pct) }}%) | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
 {% endfor %}
 
-#### AV1 ({{ headline_av1.n_combos }} (clip, target) combos)
+#### AV1
 
-| Provider | Avg VMAF | BD-Rate vs. Best | Rank |
-|----------|----------|------------------|------|
-{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
+| Provider | Avg VMAF | Success | BD-Rate vs. FFmpeg | Rank |
+|----------|----------|-------|---------------------|------|
+{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.success }} / {{ headline_av1.universe_size }} ({{ "%.0f" | format(p.success_pct) }}%) | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
 {% endfor %}
 
-{{ figure("target_reach_rate", "Figure 1.1 - Target VMAF reach rate by provider") }}
-*Stacked bar per provider × codec across the full test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} combinations per provider). Green = reached target. Yellow = missed by less than 1 VMAF point (effectively at target). Orange = missed by 1-3 points. Red = missed by more than 3 points (encoder hit a ceiling on this content). Dark gray = encoder failed to produce any output (e.g. unsupported aspect ratio).*
+{{ figure("target_success_rate", "Figure 1.1 - Target VMAF success rate by provider") }}
+*Stacked bar per provider × codec across the full test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} jobs per provider). Green = reached target. Yellow = missed by less than 1 VMAF point (effectively at target). Orange = missed by 1-3 points. Red = missed by more than 3 points (encoder hit a ceiling on this content). Dark gray = encoder failed to produce any output (e.g. unsupported aspect ratio).*
 
 {{ figure("aggregate_rd", "Figure 1.2 - Aggregate Rate-Distortion Summary") }}
 *Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better - smaller bars mean better compression efficiency.*
@@ -146,19 +141,12 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 ### 3.3 Quality Measurement
 
-- **VMAF model:** vmaf_v0.6.1neg
-- **Evaluation:** Full-video, frame-by-frame (no temporal sampling)
-- **Bitrate:** Measured via ffprobe on the actual output file (not provider-reported labels)
-- **Metrics extracted per rendition:**
-  - VMAF mean, VMAF minimum, VMAF harmonic mean
-  - VMAF 1st percentile, VMAF 5th percentile
-  - Per-frame VMAF scores (for consistency analysis)
-- **Compression ratio:** Input file size ÷ output file size
-- **BD-Rate:** Bjontegaard Delta Rate computed between each provider's RD curve and the best-performing provider as reference, using PCHIP interpolation over the overlapping VMAF range
+- **VMAF model:** `vmaf_v0.6.1neg`.
+- **VMAF computation:** full-video, frame-by-frame.
+- **Bitrate:** measured via ffprobe on the output file.
+- **BD-Rate:** Bjontegaard delta rate via PCHIP interpolation over the overlapping VMAF range.
 
-**Why percentiles matter:** A file with VMAF mean 95 but a 1st-percentile of 72 has severe transient quality drops that a viewer will notice. Mean VMAF alone is insufficient for quality assessment.
-
-**Metric chosen for Vidaio:** Vidaio only supports `vmaf_v0.6.1neg` - no other VMAF model, PSNR, SSIM, or other quality metric can be targeted. This dictates the benchmark metric for the entire report, since Vidaio could not be included otherwise. The other providers (AWS MediaConvert, Bitmovin, Brightcove Zencoder) have no such restriction and can be benchmarked against any quality metric.
+**Note:** The VMAF model is dictated by Vidaio's API, which only accepts `vmaf_v0.6.1neg` for quality targeting. We standardized on it across all providers for fair comparison.
 
 ---
 
@@ -185,11 +173,6 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 {% endfor %}
 {% endfor %}
 
-### 4.3 AV1 vs. H.265 Comparison
-
-{{ figure("codec_comparison_overlay", "Figure 4.3.1 - Codec Comparison Overlay") }}
-*AV1 vs. H.265 median RD curves per provider. Shows the magnitude of codec-generation improvement and whether it varies by provider.*
-
 ---
 
 ## 5. Storage Efficiency Analysis
@@ -200,25 +183,27 @@ This section translates rate-distortion data into the metrics that storage-cost 
 
 What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) on S3 (${{ storage_projection.cost_per_gb_month }}/GB/mo) for one year, after encoding through each provider at VMAF {{ storage_projection.target_vmaf | int }}, broken down by vertical. The dashed line shows what storing the raw source without re-encoding would cost.
 
-{{ figure("storage_projection", "Figure 5.1 - Annual Storage Cost") }}
+{{ figure("storage_projection", "Figure 5.1 - Annual Storage Cost per 1000 hours of video") }}
 
 ---
 
 ## 6. Pricing Analysis
 
-### Sticker price per output minute (1080p, public list)
+### Per-encode price (1080p, public list)
+
+What each provider charges per minute of encoded output.
 
 | Provider | H.265 | AV1 | Pricing Model | Notes |
 |----------|-------|-----|---------------|-------|
 {% for p in pricing.sticker | sort(attribute='name') %}| {{ p.name }} | {{ p.cost_per_min_1080p_h265 }} | {{ p.cost_per_min_1080p_av1 }} | {{ p.pricing_model }} | {{ p.notes }} |
 {% endfor %}
 
-### Effective cost per source minute
+### Per-target price
 
-Vidaio targets VMAF directly with a single encode. The other providers use an iterative search (multiple encode passes) to reach a target VMAF - every pass is billed. Effective cost = sticker price × average passes to reach the target.
+What it actually costs to deliver one minute of source video at a target VMAF. Vidaio targets VMAF directly with a single encode; the others use an iterative search and every pass is billed. Per-target price = per-encode price × average passes to reach the target.
 
-| Provider | Avg passes (H.265) | Avg passes (AV1) | Effective $/min (H.265) | Effective $/min (AV1) |
-|----------|-------------------|------------------|------------------------|----------------------|
+| Provider | Avg passes (H.265) | Avg passes (AV1) | Per-target $/min (H.265) | Per-target $/min (AV1) |
+|----------|-------------------|------------------|---------------------------|--------------------------|
 {% for p in pricing.effective | sort(attribute='name') %}| {{ p.name }} | {{ p.iters_h265 }} | {{ p.iters_av1 }} | {{ p.effective_h265 }} | {{ p.effective_av1 }} |
 {% endfor %}
 
@@ -237,7 +222,10 @@ Wall-clock time from job submission to a passed result, derived from search even
 {% for p in speed_summary | sort(attribute='name') %}| {{ p.name }} | {{ p.codec | upper }} | {{ "%.0f" | format(p.avg_per_pass_s) }} | {{ "%.1f" | format(p.avg_steps) }} | {{ "%.0f" | format(p.avg_total_s) }} |
 {% endfor %}
 
-**Caveat:** This is end-to-end wall-clock - it includes provider queue time, file upload, encode, download, and our local VMAF measurement between iterations. It is *not* an isolated encoder-speed measurement; that's not observable from outside a cloud API. Numbers are directional and will vary with region, load, and account tier.
+{{ figure("encoding_speed_total", "Figure 7.1 - Total wall-clock to target VMAF per provider") }}
+*Total time to deliver one converged result, by codec. Bars are averages across the test set with outliers trimmed at 1.5× IQR.*
+
+This is end-to-end wall-clock - it includes provider queue time, file upload, encode, download, and our local VMAF measurement between iterations. FFmpeg has none of the network or queue overhead since it runs locally on a 64-core server with 24-way scene-parallel encoding, so its number reflects what an operator with dedicated hardware would actually see. It is *not* an isolated encoder-speed measurement; that's not observable from outside a cloud API. Numbers are directional and will vary with region, load, and account tier.
 
 ---
 
@@ -248,24 +236,28 @@ Wall-clock time from job submission to a passed result, derived from search even
 1. **Sample size.** {{ stats.n_clips }} clips is representative but not exhaustive. Results may vary on content types not tested (e.g., sports, gaming, medical imaging).
 2. **Provider evolution.** Cloud encoders are updated frequently. These results reflect provider capabilities as of {{ config.date }}.
 3. **Pricing not fully compared.** Encoding, storage, and delivery costs vary by volume, contract, and region. Storage projections use public list prices and do not account for negotiated enterprise rates.
-4. **VMAF limitations on UGC.** VMAF may correlate less well with subjective quality on noisy, low-quality UGC content. Results on UGC clips should be interpreted with this caveat.
-5. **No subjective evaluation.** This benchmark uses objective metrics only. A subjective study (MOS scores) would provide additional validation.
-6. **Encoding time variability.** Cloud encoding speed depends on server load and is not deterministic.
+4. **Encoding time variability.** Cloud encoding speed depends on server load and is not deterministic.
 
 ### Future work
 
 - Expand to 4K test content
-- Add subjective quality evaluation (MOS study)
 - Test VP9 and H.264 as additional codec baselines
 - Re-run annually as providers update their encoders
 - Include cost-per-quality-point analysis with actual invoiced costs
-- Compute convex hull baseline via brute-force ffmpeg encoding
 
 ---
 
 ## 9. Conclusions
 
-{{ conclusions.headline | d("*To be written after data analysis.*") }}
+Across 22 clips and three VMAF targets, no single encoder wins everything. Each option has a clear strength and a clear cost.
+
+**Vidaio is the most compression-efficient encoder where it works.** On the clips where every provider strictly meets the VMAF target, Vidaio uses about 10% fewer bits than the next-best option (FFmpeg) on H.265, and about 7% fewer on AV1. Against the cloud providers the lead is wider: roughly 22-33% fewer bits than AWS MediaConvert, Bitmovin, and Brightcove Zencoder on H.265, and ~14% fewer than Bitmovin / ~83% fewer than AWS on AV1 (Brightcove Zencoder doesn't support AV1). But Vidaio only strictly meets the target on 52% of the test matrix - on the other half its output lands slightly below the labeled VMAF target.
+
+**FFmpeg with dedicated hardware is the most reliable choice.** It strictly meets the VMAF target on 100% of the test matrix, runs second on efficiency, and handles every clip - including grainy archive footage where all three cloud providers fail entirely (they max out around VMAF 58, which is below the lowest target of 85). The trade-off is operational: you run a server, scale it, queue jobs, retry on failure. For the specific task this benchmark measures - producing the smallest file at a target VMAF - FFmpeg is materially better than the cloud providers and competitive with Vidaio.
+
+**The cloud providers (Bitmovin, AWS MediaConvert, Brightcove Zencoder) lose on compression.** They use 10-21% more bits than FFmpeg on H.265 and 6-70% more on AV1. None of them handles archive content. Their differentiation is operational - managed infrastructure, scaling, API ergonomics, support - and this benchmark does not measure those. If managed service is a hard requirement, the cloud providers are appropriate; if compression efficiency is the primary criterion, they are dominated by Vidaio and FFmpeg.
+
+**Cost differences compound at scale.** Per-target price - what you actually pay to deliver one minute of source video at a target VMAF - ranges from $0.067/min (Vidaio, flat-rate, single pass) to $2.42/min (Bitmovin AV1, where the per-encode AV1 surcharge is 5× HEVC and the iterative search averages 4.8 passes). For a workload of 1,000 hours per year, that's the difference between roughly $4,000 and $145,000 in encoding fees alone, before storage. The published per-encode price is misleading because providers without native VMAF targeting need three to five search iterations to converge, each billed. FFmpeg has no list price; its real cost is the hardware and operations to host it.
 
 {{ conclusions.explanation | d("") }}
 
