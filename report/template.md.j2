@@ -62,7 +62,16 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 
 ### Headline findings
 
-Each table is restricted to the (clip, target VMAF) combinations covered by **all providers tested for that codec**, so comparisons are apples-to-apples.
+Each table below is restricted to the (clip, target VMAF) combinations covered by **all providers tested for that codec**, so comparisons are apples-to-apples.
+
+#### Sample selection
+
+The full test matrix is **{{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} combinations per provider**. The headline tables show only the **intersection** — combinations where every provider in that codec's column converged. Excluded combinations fall into two categories:
+
+- **Archive failures**: the cloud providers (Bitmovin, AWS MediaConvert, Brightcove Zencoder) cannot reach the lowest VMAF target (85) on grainy historical film - their encoders top out around VMAF 58 regardless of bitrate. All 5 archive clips × 3 VMAF targets = 15 combinations are dropped from the intersection on this basis.
+- **Portrait 4K and edge cases**: MediaConvert AV1 does not support portrait 4K aspect ratios; a few clip/target combinations exceeded the search-step budget on specific providers (e.g. Vidaio on `ugc_macbook_painting` and `ugc_rare_photos` for some targets).
+
+After both exclusions, the apples-to-apples test set used throughout the report contains **{{ headline_h265.n_combos }} H.265 combinations** and **{{ headline_av1.n_combos }} AV1 combinations**.
 
 #### H.265 ({{ headline_h265.n_combos }} (clip, target) combos)
 
