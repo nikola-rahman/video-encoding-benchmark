@@ -2,26 +2,28 @@
 """Upload encoded outputs to Hippius S3.
 
 Mirrors `data/outputs/<provider>/...` on the local/server filesystem to
-`encoded-outputs/<provider>/...` in the bucket configured via env vars
-(see benchmark/util/s3.py).
+`snapshots/<today>/data/outputs/<provider>/...` in the bucket configured
+via env vars (see benchmark/util/s3.py). The snapshot date is in the
+prefix so re-running on another day produces a separate snapshot.
 
-Defaults skip Bitmovin and Vidaio because their outputs are already in
-the bucket under different prefixes (encoding-benchmarks/ and
-samples/vidaio_outputs/ respectively).
+You specify which providers to upload via --provider. There is no
+default; nothing is uploaded unless asked.
+
+To restore later:
+    aws s3 sync s3://<bucket>/snapshots/<date>/data/outputs/ ./data/outputs/
 
 Reliability features:
   - Resumes safely: per-file head_object check skips already-uploaded
-    files with matching size (configurable via --no-skip-existing).
+    files (configurable via --no-skip-existing).
   - Per-file retry with exponential backoff on S3 errors.
-  - Progress and ETA are printed periodically.
+  - tqdm progress bar with rate / ETA.
   - All work is per-file; killing the script mid-run is safe.
   - --dry-run prints what would be uploaded without doing it.
 
 Usage:
-    .venv/bin/python scripts/upload_outputs_to_hippius.py
-    .venv/bin/python scripts/upload_outputs_to_hippius.py --dry-run
-    .venv/bin/python scripts/upload_outputs_to_hippius.py --provider ffmpeg
-    .venv/bin/python scripts/upload_outputs_to_hippius.py --root /path/to/data/outputs
+    .venv/bin/python scripts/upload_outputs_to_hippius.py --provider ffmpeg mediaconvert zencoder
+    .venv/bin/python scripts/upload_outputs_to_hippius.py --provider ffmpeg --dry-run
+    .venv/bin/python scripts/upload_outputs_to_hippius.py --provider ffmpeg --root /path/to/data/outputs
 
 Env vars required (.env or shell):
     HIPPIUS_S3_ENDPOINT
@@ -36,6 +38,7 @@ import os
 import random
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -54,8 +57,8 @@ from tqdm import tqdm
 from benchmark.util.s3 import get_s3_client, get_bucket, object_exists  # noqa: E402
 
 
-DEFAULT_PROVIDERS_TO_SKIP = {"bitmovin", "vidaio"}
-DEFAULT_S3_PREFIX = "encoded-outputs"
+def default_prefix() -> str:
+    return f"snapshots/{date.today().isoformat()}/data/outputs"
 
 # Errors worth retrying. Anything else (e.g. 403 NoSuchBucket) we let bubble up.
 RETRYABLE_ERROR_CODES = {
@@ -112,13 +115,12 @@ def upload_with_retry(s3_client, local_path: Path, bucket: str, key: str,
             time.sleep(sleep_for)
 
 
-def collect_files(root: Path, providers_to_skip: set[str]) -> list[tuple[Path, str]]:
-    """Walk data/outputs/<provider>/... and return (local_path, provider) pairs."""
+def collect_files(root: Path, providers: set[str]) -> list[tuple[Path, str]]:
+    """Walk data/outputs/<provider>/... and return (local_path, provider) pairs
+    for each provider in the given set."""
     out = []
     for provider_dir in sorted(root.iterdir()):
-        if not provider_dir.is_dir():
-            continue
-        if provider_dir.name in providers_to_skip:
+        if not provider_dir.is_dir() or provider_dir.name not in providers:
             continue
         for fpath in provider_dir.rglob("*"):
             if fpath.is_file():
@@ -128,14 +130,13 @@ def collect_files(root: Path, providers_to_skip: set[str]) -> list[tuple[Path, s
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--provider", nargs="+", required=True,
+                        help="Providers to upload (subdirectories of --root). "
+                             "Example: --provider ffmpeg mediaconvert zencoder")
     parser.add_argument("--root", default="data/outputs",
                         help="Local outputs directory (default: data/outputs)")
-    parser.add_argument("--prefix", default=DEFAULT_S3_PREFIX,
-                        help=f"S3 prefix (default: {DEFAULT_S3_PREFIX})")
-    parser.add_argument("--provider", action="append",
-                        help="Only upload for this provider (repeatable). Overrides --skip-providers.")
-    parser.add_argument("--skip-provider", action="append", default=None,
-                        help="Skip a provider (repeatable). Default: bitmovin, vidaio.")
+    parser.add_argument("--prefix", default=None,
+                        help="S3 prefix (default: snapshots/<today>/data/outputs)")
     parser.add_argument("--no-skip-existing", action="store_true",
                         help="Re-upload files even if they already exist in S3.")
     parser.add_argument("--dry-run", action="store_true",
@@ -143,6 +144,9 @@ def main():
     parser.add_argument("--max-attempts", type=int, default=6,
                         help="Per-file max retry attempts (default: 6).")
     args = parser.parse_args()
+
+    if args.prefix is None:
+        args.prefix = default_prefix()
 
     load_dotenv()
 
