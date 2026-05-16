@@ -154,19 +154,11 @@ def main():
     if not root.exists():
         sys.exit(f"Root directory not found: {root}")
 
-    if args.provider:
-        providers_to_skip = set()
-        only_providers = set(args.provider)
-    else:
-        only_providers = None
-        providers_to_skip = set(args.skip_provider) if args.skip_provider is not None else DEFAULT_PROVIDERS_TO_SKIP
-
-    files_with_provider = collect_files(root, providers_to_skip)
-    if only_providers:
-        files_with_provider = [(p, prov) for p, prov in files_with_provider if prov in only_providers]
+    providers = set(args.provider)
+    files_with_provider = collect_files(root, providers)
 
     if not files_with_provider:
-        print("No files to upload.")
+        print(f"No files to upload under {root} for providers: {sorted(providers)}")
         return
 
     total_bytes = sum(p.stat().st_size for p, _ in files_with_provider)
@@ -179,8 +171,6 @@ def main():
     print(f"Files to scan:  {len(files_with_provider)}  ({human_bytes(total_bytes)})")
     for prov, n in sorted(by_provider.items()):
         print(f"  {prov:<14} {n}")
-    if providers_to_skip and not only_providers:
-        print(f"Skipping:       {', '.join(sorted(providers_to_skip))}")
     print()
 
     if args.dry_run:
