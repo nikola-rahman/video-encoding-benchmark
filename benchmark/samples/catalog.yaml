@@ -56,38 +56,38 @@ sources:
 
   # ── UGC ───────────────────────────────────────────────────────
 
-  - id: ugc_dog_compilation
+  - id: ugc_vlog_finland
     vertical: ugc
-    name: "Dog Compilation (Pets)"
-    url: "https://www.youtube.com/shorts/GZoq4eCgmgY"
+    name: "Vlog - Days in Life Finland"
+    url: "https://www.youtube.com/watch?v=2eIoJfB7gRY"
     method: yt-dlp
     license: "YouTube"
 
-  - id: ugc_surprise_reaction
+  - id: ugc_cooking_ramsay
     vertical: ugc
-    name: "Surprise Reaction Clip"
-    url: "https://www.youtube.com/shorts/WtH-ig9PuF0"
+    name: "Cooking - Gordon Ramsay 20-min Recipes"
+    url: "https://www.youtube.com/watch?v=mzDCuS2l_qI"
     method: yt-dlp
     license: "YouTube"
 
-  - id: ugc_rare_photos
+  - id: ugc_skate_tricks
     vertical: ugc
-    name: "Rare Photos Slideshow"
-    url: "https://www.youtube.com/shorts/UEAIGUtZAfk"
+    name: "Skateboarding Tricks Compilation"
+    url: "https://www.youtube.com/watch?v=sjAt8m1Vvyw"
     method: yt-dlp
     license: "YouTube"
 
-  - id: ugc_macbook_painting
+  - id: ugc_laptop_unboxing
     vertical: ugc
-    name: "Painting a MacBook"
-    url: "https://www.youtube.com/shorts/Yx3Pc50sf0M"
+    name: "Acer Chromebook Plus 514 Unboxing"
+    url: "https://www.youtube.com/watch?v=XHFNeEmSjmY"
     method: yt-dlp
     license: "YouTube"
 
-  - id: ugc_reaction_comedy
+  - id: ugc_guitar_performance
     vertical: ugc
-    name: "Reaction/Comedy Clip"
-    url: "https://www.youtube.com/shorts/OQylRLFz-tQ"
+    name: "Acoustic Guitar Performance"
+    url: "https://www.youtube.com/watch?v=8UPHFjHvGvY"
     method: yt-dlp
     license: "YouTube"
 
