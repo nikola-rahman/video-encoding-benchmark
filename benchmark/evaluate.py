@@ -97,24 +97,32 @@ def main():
         return
 
     clip_vertical = {s["id"]: s["vertical"] for s in load_catalog()}
-    allowed_clips = None
+    catalog_clips = set(clip_vertical)
+
+    allowed = catalog_clips
     if args.vertical or args.id:
-        allowed_clips = set()
+        allowed = set()
         if args.vertical:
             verticals = set(args.vertical)
-            allowed_clips.update(cid for cid, v in clip_vertical.items() if v in verticals)
+            allowed.update(cid for cid, v in clip_vertical.items() if v in verticals)
         if args.id:
-            allowed_clips.update(args.id)
+            allowed.update(args.id)
+        allowed &= catalog_clips
 
     parsed_files = []
+    skipped_unlisted = 0
     for f in files:
         parsed = parse_filename(f)
         if parsed is None:
             print(f"  Skipping {f.name} — doesn't match <clip>_<codec>_vmaf<target>.mp4")
             continue
-        if allowed_clips is not None and parsed["clip"] not in allowed_clips:
+        if parsed["clip"] not in allowed:
+            skipped_unlisted += 1
             continue
         parsed_files.append((f, parsed))
+
+    if skipped_unlisted:
+        print(f"  Skipped {skipped_unlisted} file(s) — clip not in catalog/filter")
 
     if not parsed_files:
         print("No files matched the naming convention")
