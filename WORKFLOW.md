@@ -4,9 +4,34 @@ Step-by-step guide to benchmarking video compression quality across providers.
 
 ## Prerequisites
 
+### Linux (Ubuntu / Debian) — recommended
+
 ```bash
+sudo apt-get update && sudo apt-get install -y git curl
+
+# uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# ffmpeg 7.1 (with libvmaf, libx265, libsvtav1)
+cd /tmp
+curl -L -o ffmpeg-n7.1.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz
+tar -xf ffmpeg-n7.1.tar.xz
+sudo mv ffmpeg-n7.1-latest-linux64-gpl-7.1 /usr/local/lib/ffmpeg-7.1
+sudo ln -sf /usr/local/lib/ffmpeg-7.1/bin/ffmpeg /usr/local/bin/ffmpeg
+sudo ln -sf /usr/local/lib/ffmpeg-7.1/bin/ffprobe /usr/local/bin/ffprobe
+
+# repo
+git clone git@github.com:nikola-rahman/video-compression-benchmark.git
+cd video-compression-benchmark
 uv sync
-brew install ffmpeg vmaf   # or build from source
+```
+
+### macOS
+
+```bash
+brew install ffmpeg uv git
+uv sync
 ```
 
 Configure `.env`:
