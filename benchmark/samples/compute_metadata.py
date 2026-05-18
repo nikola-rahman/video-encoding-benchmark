@@ -88,9 +88,17 @@ def run(input_dir: Path, output_file: Path, workers: int = 8):
     catalog = load_catalog()
     clip_vertical = {s["id"]: s["vertical"] for s in catalog}
 
-    videos = sorted(f for f in input_dir.iterdir() if f.suffix.lower() in VIDEO_EXTENSIONS)
+    videos = []
+    for sid in clip_vertical:
+        matches = sorted(input_dir.glob(f"{sid}.*"))
+        matches = [m for m in matches if m.suffix.lower() in VIDEO_EXTENSIONS]
+        if not matches:
+            print(f"  WARN: no video found for {sid} in {input_dir}")
+            continue
+        videos.append(matches[0])
+    videos.sort()
     if not videos:
-        print(f"No videos in {input_dir}")
+        print(f"No catalog videos in {input_dir}")
         return
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
