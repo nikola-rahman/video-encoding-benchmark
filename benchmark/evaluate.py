@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from benchmark.config import load_config
 from benchmark.encode import EventLog, make_measure_vmaf
+from benchmark.samples.catalog import load_catalog
 from benchmark.util.ffmpeg import get_actual_bitrate
 
 load_dotenv()
@@ -83,6 +84,8 @@ def main():
     parser.add_argument("--dir", required=True, type=Path, help="Directory with encoded files")
     parser.add_argument("--vmaf-threads", type=int, default=None, help="VMAF threads per measurement")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
+    parser.add_argument("--vertical", nargs="*", help="Filter to clips in these verticals (per catalog.yaml)")
+    parser.add_argument("--id", nargs="*", help="Filter to these clip ids")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -93,11 +96,23 @@ def main():
         print(f"No .mp4 files in {args.dir}")
         return
 
+    clip_vertical = {s["id"]: s["vertical"] for s in load_catalog()}
+    allowed_clips = None
+    if args.vertical or args.id:
+        allowed_clips = set()
+        if args.vertical:
+            verticals = set(args.vertical)
+            allowed_clips.update(cid for cid, v in clip_vertical.items() if v in verticals)
+        if args.id:
+            allowed_clips.update(args.id)
+
     parsed_files = []
     for f in files:
         parsed = parse_filename(f)
         if parsed is None:
             print(f"  Skipping {f.name} — doesn't match <clip>_<codec>_vmaf<target>.mp4")
+            continue
+        if allowed_clips is not None and parsed["clip"] not in allowed_clips:
             continue
         parsed_files.append((f, parsed))
 
