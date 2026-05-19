@@ -197,7 +197,7 @@ def gen_target_success_rate(results, config, figures_dir):
     # Bucket thresholds (VMAF points below target)
     BUCKETS = [
         ("Reached target",        "#2e7d32", lambda gap: gap <= 0),
-        ("Missed by < 1",         "#fbc02d", lambda gap: 0 < gap <= 1),
+        ("Missed by < 1",         "#81c784", lambda gap: 0 < gap <= 1),
         ("Missed by 1-3",         "#ef6c00", lambda gap: 1 < gap <= 3),
         ("Missed by > 3",         "#c62828", lambda gap: gap > 3),
         ("Encoder failed",        "#424242", None),  # no output produced
