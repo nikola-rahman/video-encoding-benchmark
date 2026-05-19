@@ -646,6 +646,119 @@ def gen_bdrate_bars(results, config, figures_dir):
             print(f"  bdrate_bar_{codec}.png")
 
 
+def gen_cost_vs_efficiency(results, pricing_rows, jsonl_events, config, figures_dir):
+    """Per (provider, codec) scatter: effective $/min vs BD-Rate vs FFmpeg.
+
+    Effective cost = sticker × avg_iterations_to_converge (single-encode
+    providers like Vidaio have 1 iteration; cloud providers run the binary
+    search and pay per pass). BD-Rate is computed against the FFmpeg
+    reference using the intersection-of-attempted set per codec.
+
+    Providers without a list per-minute price (e.g. FFmpeg) are omitted —
+    cost is not directly comparable for self-hosted encoders.
+    """
+    from report.generate import compute_bdrate, avg_iterations_by_provider_codec
+
+    avg_iters = avg_iterations_by_provider_codec(jsonl_events)
+
+    def parse_price(s):
+        if not s or s in ("-", "—", "TBD", ""):
+            return None
+        try:
+            return float(str(s).replace("$", "").strip())
+        except (ValueError, TypeError):
+            return None
+
+    sticker = {}
+    for r in pricing_rows:
+        pid = r["provider"]
+        sticker[(pid, "h265")] = parse_price(r.get("cost_per_min_1080p_h265"))
+        sticker[(pid, "av1")] = parse_price(r.get("cost_per_min_1080p_av1"))
+
+    points = []
+    for codec in config.get("codecs", []):
+        intersection_rows, intersection_set, _, _ = _intersection_and_success(
+            results, codec, attempted=True
+        )
+        if not intersection_rows:
+            continue
+
+        by_provider = defaultdict(list)
+        for r in intersection_rows:
+            by_provider[r["provider"]].append(r)
+
+        if "ffmpeg" not in by_provider:
+            continue
+
+        points_by_clip = defaultdict(lambda: defaultdict(list))
+        for r in intersection_rows:
+            points_by_clip[r["clip"]][r["provider"]].append(r)
+
+        for pid in by_provider:
+            if pid == "ffmpeg":
+                continue
+            s = sticker.get((pid, codec))
+            iters = avg_iters.get((pid, codec))
+            if s is None or iters is None:
+                continue
+            effective = s * iters
+
+            per_clip = []
+            for clip, provs in points_by_clip.items():
+                ref_clip = provs.get("ffmpeg", [])
+                test_clip = provs.get(pid, [])
+                if len(ref_clip) >= 2 and len(test_clip) >= 2:
+                    bd = compute_bdrate(ref_clip, test_clip)
+                    if bd is not None:
+                        per_clip.append(bd)
+            if not per_clip:
+                continue
+            bdrate = sum(per_clip) / len(per_clip)
+            points.append({
+                "provider": pid,
+                "name": provider_name(pid, config),
+                "codec": codec,
+                "cost": effective,
+                "bdrate": bdrate,
+            })
+
+    if not points:
+        return
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    codec_marker = {"h265": "o", "av1": "^"}
+    seen_provider = set()
+    seen_codec = set()
+    for p in points:
+        color = get_color(p["name"])
+        marker = codec_marker.get(p["codec"], "s")
+        provider_label = p["name"] if p["provider"] not in seen_provider else None
+        ax.scatter(p["cost"], -p["bdrate"], color=color, marker=marker, s=180,
+                   edgecolors="black", linewidths=0.6, zorder=5,
+                   label=provider_label)
+        seen_provider.add(p["provider"])
+        seen_codec.add(p["codec"])
+        codec_short = p["codec"].upper().replace("H265", "H.265")
+        ax.annotate(f"{p['name']} {codec_short}", (p["cost"], -p["bdrate"]),
+                    textcoords="offset points", xytext=(8, 4),
+                    fontsize=8.5, va="bottom")
+
+    ax.axhline(y=0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
+    ax.text(ax.get_xlim()[1] if ax.get_xlim()[1] > 0 else 1, 0.5,
+            "FFmpeg (reference)", fontsize=8, alpha=0.6, va="bottom", ha="right")
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Effective cost per encoded minute at target VMAF ($, log scale)")
+    ax.set_ylabel("Bitrate savings vs FFmpeg (%)\n(positive = uses fewer bits)")
+    ax.set_title("Cost vs. Compression Efficiency")
+    ax.grid(True, which="both", alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(figures_dir / "cost_vs_efficiency.png")
+    plt.close(fig)
+    print(f"  cost_vs_efficiency.png")
+
+
 def gen_si_ti_scatter(clips, config, figures_dir):
     """Figure 3.2 - SI vs TI scatter."""
     palette = ["#E69F00", "#56B4E9", "#009E73", "#D55E00", "#0072B2", "#CC79A7"]
@@ -1322,6 +1435,7 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_encoding_speed_total(build_speed_summary(jsonl_events, config), config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
     gen_storage_projection(results, clips, config, figures_dir)
+    gen_cost_vs_efficiency(all_results, pricing_rows, jsonl_events, config, figures_dir)
 
     # Charts from extended data (per-frame VMAF, iframe)
     perframe_path = report_dir / config["data"].get("perframe_vmaf", "data/perframe_vmaf.csv")
