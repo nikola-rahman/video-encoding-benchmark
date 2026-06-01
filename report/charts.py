@@ -265,7 +265,7 @@ def gen_target_success_rate(results, config, figures_dir):
     handles, labels = axes[-1].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(BUCKETS),
                fontsize=9, frameon=False, bbox_to_anchor=(0.5, 1.02))
-    fig.suptitle("Target VMAF success rate by provider (with miss amplitude)",
+    fig.suptitle("Per-job outcome at the requested VMAF target",
                  fontsize=13, y=0.95)
     fig.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(figures_dir / "target_success_rate.png", bbox_inches="tight")
@@ -332,19 +332,11 @@ def _intersection_and_success(rows, codec, clip_filter=None, near_target_toleran
 
 
 def _success_label(pname_or_pid, success_pct, config):
-    """Format a legend label including the provider's success-rate percentage."""
-    pname = provider_name(pname_or_pid, config) if pname_or_pid in {p["id"] for p in config["providers"]} else pname_or_pid
-    pct = None
-    if pname_or_pid in success_pct:
-        pct = success_pct[pname_or_pid]
-    else:
-        for k, v in success_pct.items():
-            if provider_name(k, config) == pname_or_pid:
-                pct = v
-                break
-    if pct is None:
-        return pname
-    return f"{pname} ({pct:.0f}% success)"
+    """Return just the provider name. (Success rate annotation removed —
+    target-attainment data is now in §4.3 only.)"""
+    if pname_or_pid in {p["id"] for p in config["providers"]}:
+        return provider_name(pname_or_pid, config)
+    return pname_or_pid
 
 
 def gen_aggregate_rd(results, config, figures_dir):
@@ -609,9 +601,8 @@ def gen_bdrate_bars(results, config, figures_dir):
         labels, values = [], []
         for pid, data in sorted(by_provider.items()):
             pname = provider_name(pid, config)
-            success_str = f"{success_pct.get(pid, 0):.0f}% success"
             label_suffix = " (ref)" if pid == ref_pid else ""
-            full_label = f"{pname} ({success_str}){label_suffix}"
+            full_label = f"{pname}{label_suffix}"
             if pid == ref_pid:
                 labels.append(full_label)
                 values.append(0)
