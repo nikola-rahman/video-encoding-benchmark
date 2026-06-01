@@ -700,10 +700,15 @@ def gen_provider_quadrant(results, config, figures_dir):
             if per_clip:
                 bdrate_savings_per_codec[pid].append(-sum(per_clip) / len(per_clip))
 
-    # Average across codecs → single BD-Rate savings value per provider
+    # Average across codecs → single BD-Rate savings value per provider.
+    # Only include providers with data for every benchmark codec, so a
+    # codec-incomplete provider (e.g. Zencoder, H.265 only) doesn't show
+    # up next to others whose value is averaged over the full codec set.
+    n_codecs = len(benchmark_codecs)
     bdrate_savings = {
         pid: sum(vals) / len(vals)
-        for pid, vals in bdrate_savings_per_codec.items() if vals
+        for pid, vals in bdrate_savings_per_codec.items()
+        if len(vals) == n_codecs
     }
 
     if not bdrate_savings:
@@ -713,7 +718,7 @@ def gen_provider_quadrant(results, config, figures_dir):
     short_name = {
         "vidaio": "Vidaio", "bitmovin": "Bitmovin",
         "mediaconvert": "AWS MC", "zencoder": "Zencoder",
-        "ffmpeg": "FFmpeg",
+        "ffmpeg": "FFmpeg (naive)",
     }
     notes = {
         "vidaio":       "single API call,\nmost efficient",

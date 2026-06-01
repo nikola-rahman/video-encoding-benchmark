@@ -1,4 +1,4 @@
-version: "2.2"
+version: "2.3"
 author: "Nikola Rahman"
 commissioned_by: "Vidaio"
 
@@ -21,7 +21,7 @@ providers:
   - id: bitmovin
     name: "Bitmovin"
   - id: ffmpeg
-    name: "FFmpeg (self-hosted)"
+    name: "FFmpeg (naive)"
   - id: mediaconvert
     name: "AWS MediaConvert"
   - id: vidaio

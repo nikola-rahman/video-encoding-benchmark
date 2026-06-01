@@ -63,19 +63,19 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 Three charts summarise the benchmark: where each provider sits on the two dimensions that drive a buying decision (Figure 1.1), how many bits each provider uses to deliver each VMAF target (Figure 1.2), and how often each provider strictly meets that target (Figure 1.3). Per-codec breakdowns and BD-Rate tables are in §4.
 
 {{ figure("provider_quadrant", "Figure 1.1 - Provider Positioning: Compression Efficiency vs. Convenience") }}
-*X-axis (Compression Efficiency): BD-Rate savings vs the FFmpeg reference, averaged across both codecs — positive means the provider uses fewer bits than FFmpeg at matched quality. Y-axis (Operational Convenience): score from the §1.4 capability matrix (native VMAF targeting, single-encode workflow, managed service, low codec-parameter expertise).*
+*X-axis (Compression Efficiency): BD-Rate savings vs the FFmpeg reference, averaged across both codecs — positive means the provider uses fewer bits than FFmpeg at matched quality. Y-axis (Operational Convenience): score from the §1.4 capability matrix (native VMAF targeting, single-encode workflow, managed service, low codec-parameter expertise). Brightcove Zencoder is omitted — H.265 only, not comparable across both codecs.*
 
 {{ figure("aggregate_rd", "Figure 1.2 - Average Bitrate by VMAF Target") }}
 *Grouped bars per provider at each of the three VMAF targets. Lower is better — smaller bars mean fewer bits to deliver the same quality.*
 
 ### Operational Capabilities
 
-| Capability                                | Vidaio | Bitmovin | AWS MC  | Zencoder | FFmpeg  |
-|-------------------------------------------|:------:|:--------:|:-------:|:--------:|:-------:|
-| Targets VMAF natively (API parameter)     | ✓      | —        | —       | —        | —       |
-| Single-encode workflow (no search loop)   | ✓      | —        | —       | —        | —       |
-| Managed service (no self-hosting)         | ✓      | ✓        | ✓       | ✓        | —       |
-| No codec-parameter expertise required     | ✓      | partial  | partial | partial  | —       |
+| Capability                                | Vidaio | Bitmovin | AWS MC  | Zencoder | FFmpeg (naive) |
+|-------------------------------------------|:------:|:--------:|:-------:|:--------:|:--------------:|
+| Targets VMAF natively (API parameter)     | ✓      | —        | —       | —        | —              |
+| Single-encode workflow (no search loop)   | ✓      | —        | —       | —        | —              |
+| Managed service (no self-hosting)         | ✓      | ✓        | ✓       | ✓        | —              |
+| No codec-parameter expertise required     | ✓      | partial  | partial | partial  | —              |
 
 *Vidaio is the only encoder that accepts a target VMAF as a first-class API input. Every other encoder requires the user to wrap it in an iterative search loop, configure rate-control/bitrate/profile parameters, and run external VMAF measurement between iterations. FFmpeg additionally requires self-hosting the encoder.*
 
@@ -129,6 +129,8 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 **Fairness statement:** Each provider was configured to produce the smallest possible file size at a given target quality (VMAF). For providers with quality controls, an interpolation search over each provider's quality parameter finds the setting that hits each VMAF target. For providers without quality controls, the single output represents the provider's best-effort encoding.
 
 **Configurable providers:** For each clip, an interpolation search over each provider's quality parameter finds the setting that hits target VMAF scores ({{ vmaf_targets | join(', ') }}). This produces matched-quality data points for direct comparison.
+
+**FFmpeg (naive) baseline:** In this benchmark "FFmpeg (naive)" is self-hosted FFmpeg with `libx265` (H.265, preset `slow`) and `libsvtav1` (AV1, preset 4), driven by an interpolation search over the single CRF quality knob. No content-aware preset tuning, no smart rate control — the same encoder settings are applied to every clip and only CRF varies between iterations. These are the same open-source encoders that the managed providers (Vidaio included) build their pipelines on; the benchmark is therefore comparing the parameter-selection and search wrappers around the encoders, not the underlying codecs.
 
 ### 3.3 Quality Measurement
 
