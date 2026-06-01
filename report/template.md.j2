@@ -33,7 +33,6 @@
 | **Commissioned by** | {{ config.commissioned_by }} |
 | **Date** | {{ config.date }} |
 | **Version** | {{ config.version }} |
-| **Data repository** | {{ config.repo_url }} |
 
 ---
 
@@ -43,7 +42,6 @@ This report was commissioned by {{ config.commissioned_by }} and produced by {{ 
 
 - All providers were tested using publicly available APIs with their best available quality settings.
 - Provider-specific configuration details are documented in the [Methodology](#3-methodology) section.
-- The complete raw data and measurement code are available at {{ config.repo_url }}.
 - Draft results were shared with all tested providers prior to publication for factual accuracy review.
 
 **Providers considered but excluded:** Mux and Cloudflare Stream were initially evaluated but excluded from the final benchmark - both produce H.264-only static MP4 downloads with no quality controls. AV1 and H.265 are only available via streaming, not as downloadable files, making fair comparison with the other providers impossible.
@@ -62,34 +60,24 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 
 ### Headline findings
 
-**BD-Rate** is computed on the *intersection* — the (clip, target VMAF) jobs where **every provider** in that codec converged. Reference is **FFmpeg** (the open-source baseline; negative BD-Rate means the provider uses fewer bits than FFmpeg at matched quality).
+Three charts summarise the benchmark: where each provider sits on the two dimensions that drive a buying decision (Figure 1.1), how many bits each provider uses to deliver each VMAF target (Figure 1.2), and how often each provider strictly meets that target (Figure 1.3). Per-codec breakdowns and BD-Rate tables are in §4.
 
-**Success** is each provider's coverage of the **full** test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} jobs) — the fraction of jobs where the provider reached the target VMAF. Read together with BD-Rate.
+{{ figure("provider_quadrant", "Figure 1.1 - Provider Positioning: Compression Efficiency vs. Convenience") }}
+*X-axis (Compression Efficiency): BD-Rate savings vs the FFmpeg reference, averaged across both codecs — positive means the provider uses fewer bits than FFmpeg at matched quality. Y-axis (Operational Convenience): score from the §1.4 capability matrix (native VMAF targeting, single-encode workflow, managed service, low codec-parameter expertise).*
 
-H.265 intersection: **{{ headline_h265.n_jobs }} / {{ headline_h265.universe_size }} jobs**. AV1 intersection: **{{ headline_av1.n_jobs }} / {{ headline_av1.universe_size }} jobs**.
+{{ figure("aggregate_rd", "Figure 1.2 - Average Bitrate by VMAF Target") }}
+*Grouped bars per provider at each of the three VMAF targets. Lower is better — smaller bars mean fewer bits to deliver the same quality.*
 
-#### H.265
+### Operational Capabilities
 
-| Provider | Avg VMAF | Success | BD-Rate vs. FFmpeg | Rank |
-|----------|----------|-------|---------------------|------|
-{% for p in headline_h265.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.success }} / {{ headline_h265.universe_size }} ({{ "%.0f" | format(p.success_pct) }}%) | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
-{% endfor %}
+| Capability                                | Vidaio | Bitmovin | AWS MC  | Zencoder | FFmpeg  |
+|-------------------------------------------|:------:|:--------:|:-------:|:--------:|:-------:|
+| Targets VMAF natively (API parameter)     | ✓      | —        | —       | —        | —       |
+| Single-encode workflow (no search loop)   | ✓      | —        | —       | —        | —       |
+| Managed service (no self-hosting)         | ✓      | ✓        | ✓       | ✓        | —       |
+| No codec-parameter expertise required     | ✓      | partial  | partial | partial  | —       |
 
-#### AV1
-
-| Provider | Avg VMAF | Success | BD-Rate vs. FFmpeg | Rank |
-|----------|----------|-------|---------------------|------|
-{% for p in headline_av1.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.success }} / {{ headline_av1.universe_size }} ({{ "%.0f" | format(p.success_pct) }}%) | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
-{% endfor %}
-
-{{ figure("cost_vs_efficiency", "Figure 1.1 - Cost vs. Compression Efficiency") }}
-*Each marker is one provider × codec at target VMAF. X-axis: effective cost per encoded minute (sticker price × average iterations to converge; log scale). Y-axis: bitrate savings vs the FFmpeg reference (positive = uses fewer bits, BD-Rate). FFmpeg is omitted because it has no list per-minute price (self-hosted).*
-
-{{ figure("aggregate_rd", "Figure 1.2 - Aggregate Rate-Distortion Summary") }}
-*Average bitrate across {{ stats.n_clips }} clips at each VMAF target. Lower is better - smaller bars mean better compression efficiency.*
-
-{{ figure("target_success_rate", "Figure 1.3 - Target VMAF success rate by provider") }}
-*Stacked bar per provider × codec across the full test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} jobs per provider). Dark green = reached target. Light green = missed by less than 1 VMAF point (effectively at target). Orange = missed by 1-3 points. Red = missed by more than 3 points (encoder hit a ceiling on this content). Dark gray = encoder failed to produce any output.*
+*Vidaio is the only encoder that accepts a target VMAF as a first-class API input. Every other encoder requires the user to wrap it in an iterative search loop, configure rate-control/bitrate/profile parameters, and run external VMAF measurement between iterations. FFmpeg additionally requires self-hosting the encoder.*
 
 ---
 
@@ -160,6 +148,15 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 ### {{ sec_base }} {{ codec_label }} Results
 
+{%- set headline = headline_h265 if codec == "h265" else headline_av1 %}
+
+**BD-Rate** is computed on the *intersection* — the (clip, target VMAF) jobs where **every provider** in this codec converged. Reference is **FFmpeg** (the open-source baseline; negative BD-Rate means the provider uses fewer bits than FFmpeg at matched quality). Intersection: **{{ headline.n_jobs }} / {{ headline.universe_size }} jobs**.
+
+| Provider | Avg VMAF | BD-Rate vs. FFmpeg | Rank |
+|----------|----------|---------------------|------|
+{% for p in headline.rows | sort(attribute='name') %}| {{ p.name }} | {{ "%.1f" | format(p.vmaf_avg) if p.vmaf_avg else "-" }} | {{ p.bdrate if p.bdrate else "-" }} | {{ p.rank }} |
+{% endfor %}
+
 #### {{ sec_base }}.1 Aggregate {{ codec_label }} Rate-Distortion
 
 {{ figure("aggregate_rd_" ~ codec, "Figure " ~ sec_base ~ ".1 - Aggregate RD Curves, " ~ codec_label) }}
@@ -175,6 +172,11 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 {{ vertical_section(codec, codec_label, v.id, v.name, sec_base ~ "." ~ (v_num + 1), "rd_" ~ codec ~ "_" ~ v.id) }}
 {% endfor %}
 {% endfor %}
+
+### 4.3 Target Attainment
+
+{{ figure("target_success_rate", "Figure 4.3 - Per-job outcome at the requested VMAF target") }}
+*Stacked bar per provider × codec across the full test matrix ({{ stats.n_clips }} clips × 3 VMAF targets = {{ stats.n_clips * 3 }} jobs per provider). Dark green = reached target. Light green = missed by less than 1 VMAF point (effectively at target). Amber = missed by 1-3 points. Red = missed by more than 3 points (encoder hit a ceiling on this content). Dark gray = encoder failed to produce any output.*
 
 ---
 

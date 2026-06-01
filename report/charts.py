@@ -198,8 +198,8 @@ def gen_target_success_rate(results, config, figures_dir):
     BUCKETS = [
         ("Reached target",        "#2e7d32", lambda gap: gap <= 0),
         ("Missed by < 1",         "#66bb6a", lambda gap: 0 < gap <= 1),
-        ("Missed by 1-3",         "#ef6c00", lambda gap: 1 < gap <= 3),
-        ("Missed by > 3",         "#c62828", lambda gap: gap > 3),
+        ("Missed by 1-3",         "#ffa726", lambda gap: 1 < gap <= 3),
+        ("Missed by > 3",         "#e57373", lambda gap: gap > 3),
         ("Encoder failed",        "#424242", None),  # no output produced
     ]
     FAILED_LABEL = "Encoder failed"
@@ -379,8 +379,7 @@ def gen_aggregate_rd(results, config, figures_dir):
             color = get_color(pname)
             vals = [avg.get((pname, t), 0) for t in targets]
             offset = (i - n / 2 + 0.5) * width
-            label = _success_label(pname, success_pct, config)
-            bars = ax.bar(x + offset, vals, width, label=label, color=color)
+            bars = ax.bar(x + offset, vals, width, label=pname, color=color)
             for bar, val in zip(bars, vals):
                 if val > 0:
                     ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 10,
@@ -644,6 +643,137 @@ def gen_bdrate_bars(results, config, figures_dir):
             fig.savefig(figures_dir / f"bdrate_bar_{codec}.png")
             plt.close(fig)
             print(f"  bdrate_bar_{codec}.png")
+
+
+def gen_provider_quadrant(results, config, figures_dir):
+    """Provider positioning quadrant.
+
+    X-axis: BD-Rate savings vs FFmpeg reference, averaged across both codecs.
+        Positive = uses fewer bits than FFmpeg at matched VMAF (better).
+        Negative = uses more bits than FFmpeg (worse).
+        FFmpeg sits at 0 by definition (it is the reference).
+    Y-axis: Operational convenience from §1.4 capability matrix.
+    """
+    from report.generate import compute_bdrate
+
+    benchmark_codecs = set(config.get("codecs", []))
+
+    capability = {
+        "vidaio":       4.0,
+        "bitmovin":     2.5,
+        "mediaconvert": 2.5,
+        "zencoder":     2.5,
+        "ffmpeg":       0.0,
+    }
+    def conv_score(pid):
+        return 1.5 + (capability.get(pid, 0) / 4.0) * 7.5
+
+    # Per-codec, per-provider BD-Rate vs FFmpeg on the intersection of clips
+    # every provider converged on (same as gen_bdrate_bars).
+    bdrate_savings_per_codec = defaultdict(list)
+    for codec in benchmark_codecs:
+        intersection_rows, _, _, _ = _intersection_and_success(
+            results, codec, attempted=True
+        )
+        if not intersection_rows:
+            continue
+        by_provider = defaultdict(list)
+        for r in intersection_rows:
+            by_provider[r["provider"]].append(r)
+        if "ffmpeg" not in by_provider:
+            continue
+        points_by_clip = defaultdict(lambda: defaultdict(list))
+        for r in intersection_rows:
+            points_by_clip[r["clip"]][r["provider"]].append(r)
+        for pid in by_provider:
+            if pid == "ffmpeg":
+                bdrate_savings_per_codec[pid].append(0.0)
+                continue
+            per_clip = []
+            for clip, provs in points_by_clip.items():
+                ref = provs.get("ffmpeg", [])
+                test = provs.get(pid, [])
+                if len(ref) >= 2 and len(test) >= 2:
+                    bd = compute_bdrate(ref, test)
+                    if bd is not None:
+                        per_clip.append(bd)
+            if per_clip:
+                bdrate_savings_per_codec[pid].append(-sum(per_clip) / len(per_clip))
+
+    # Average across codecs → single BD-Rate savings value per provider
+    bdrate_savings = {
+        pid: sum(vals) / len(vals)
+        for pid, vals in bdrate_savings_per_codec.items() if vals
+    }
+
+    if not bdrate_savings:
+        return
+
+    pname_map = {p["id"]: p["name"] for p in config["providers"]}
+    short_name = {
+        "vidaio": "Vidaio", "bitmovin": "Bitmovin",
+        "mediaconvert": "AWS MC", "zencoder": "Zencoder",
+        "ffmpeg": "FFmpeg",
+    }
+    notes = {
+        "vidaio":       "single API call,\nmost efficient",
+        "ffmpeg":       "open-source baseline,\nrequires self-host + search loop",
+        "zencoder":     "H.265 only",
+    }
+
+    # X-axis: BD-Rate savings, centered at 0 (FFmpeg reference).
+    vals = list(bdrate_savings.values())
+    pad = 5.0
+    XMIN = min(vals) - pad
+    XMAX = max(vals) + pad
+    XMID = 0  # FFmpeg reference
+    YMID, YMIN, YMAX = 5, 0, 10
+
+    fig, ax = plt.subplots(figsize=(11, 8.5))
+
+    # Quadrant tints (BEST = right + top; AVOID = left + bottom)
+    ax.axhspan(YMID, YMAX, xmin=(XMID - XMIN) / (XMAX - XMIN), xmax=1.0,
+               color="#e8f5e9", zorder=0)
+    ax.axhspan(YMIN, YMID, xmin=0.0, xmax=(XMID - XMIN) / (XMAX - XMIN),
+               color="#ffebee", zorder=0)
+    ax.axhline(YMID, color="#888", lw=0.9, ls="--", zorder=1)
+    ax.axvline(XMID, color="#888", lw=0.9, ls="--", zorder=1)
+
+    ax.text(XMAX - 0.5, YMAX - 0.2, "BEST\nefficient + convenient",
+            ha="right", va="top", fontsize=10, color="#2e7d32", fontweight="bold", alpha=0.8)
+    ax.text(XMIN + 0.5, YMAX - 0.2, "Managed but\ninefficient",
+            ha="left", va="top", fontsize=10, color="#777", alpha=0.85)
+    ax.text(XMAX - 0.5, YMIN + 0.3, "Niche / Self-hosted\nefficient but expert-only",
+            ha="right", va="bottom", fontsize=10, color="#777", alpha=0.85)
+    ax.text(XMIN + 0.5, YMIN + 0.3, "Avoid",
+            ha="left", va="bottom", fontsize=10, color="#c62828", alpha=0.6)
+
+    for pid in sorted(bdrate_savings.keys()):
+        pname = pname_map.get(pid, pid)
+        color = get_color(pname)
+        x = bdrate_savings[pid]
+        y = conv_score(pid)
+        label = short_name.get(pid, pname)
+        ax.scatter(x, y, s=420, color=color, edgecolors="black",
+                   linewidths=1.2, zorder=5, alpha=0.95)
+        ax.annotate(label, (x, y), textcoords="offset points", xytext=(15, 6),
+                    fontsize=12, fontweight="bold", zorder=6)
+        if pid in notes:
+            ax.annotate(notes[pid], (x, y), textcoords="offset points", xytext=(15, -22),
+                        fontsize=9, color="#444", style="italic", zorder=6)
+
+    ax.set_xlim(XMIN, XMAX)
+    ax.set_ylim(YMIN, YMAX)
+    ax.set_xticks([XMID])
+    ax.set_xticklabels(["FFmpeg ref (0%)"], fontsize=9, color="#666")
+    ax.set_yticks([])
+    ax.set_xlabel("Compression Efficiency  (BD-Rate savings vs FFmpeg, %)  →  better", fontsize=12)
+    ax.set_ylabel("Operational Convenience  →  easier to integrate", fontsize=12)
+    ax.set_title("Provider Positioning: Compression Efficiency vs. Convenience", fontsize=14, pad=15)
+    fig.tight_layout()
+    fig.savefig(figures_dir / "provider_quadrant.png", bbox_inches="tight")
+    plt.close(fig)
+    print(f"  provider_quadrant.png")
 
 
 def gen_cost_vs_efficiency(results, pricing_rows, jsonl_events, config, figures_dir):
@@ -1435,6 +1565,7 @@ def generate_all(config_path=DEFAULT_CONFIG):
     gen_encoding_speed_total(build_speed_summary(jsonl_events, config), config, figures_dir)
     gen_tco_stacked(results, pricing_rows, config, figures_dir)
     gen_storage_projection(results, clips, config, figures_dir)
+    gen_provider_quadrant(results, config, figures_dir)
     gen_cost_vs_efficiency(all_results, pricing_rows, jsonl_events, config, figures_dir)
 
     # Charts from extended data (per-frame VMAF, iframe)

@@ -1,7 +1,6 @@
-version: "1.7"
+version: "2.2"
 author: "Nikola Rahman"
 commissioned_by: "Vidaio"
-repo_url: "https://github.com/nikola-rahman/video-compression-benchmark"
 
 # VMAF thresholds used throughout the report
 vmaf_transparent: 93
