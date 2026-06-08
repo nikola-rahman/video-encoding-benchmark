@@ -71,11 +71,14 @@ def get_actual_bitrate(path: str | Path) -> int | None:
     """Get actual video bitrate from file via ffprobe."""
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=bit_rate", "-of", "csv=p=0", str(path)],
+         "-show_entries", "stream=bit_rate", "-of", "default=nokey=1:noprint_wrappers=1", str(path)],
         capture_output=True, text=True,
     )
-    if result.returncode == 0 and result.stdout.strip().isdigit():
-        return int(result.stdout.strip())
+    if result.returncode != 0:
+        return None
+    val = result.stdout.strip()
+    if val.isdigit():
+        return int(val)
     return None
 
 
