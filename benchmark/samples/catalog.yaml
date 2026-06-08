@@ -141,14 +141,6 @@ sources:
     license: "YouTube"
     trim: {start: 0, duration: 10}
 
-  - id: ugc_4k_football_highlights
-    vertical: ugc
-    name: "Football Champions Cup Highlights 4K"
-    url: "https://www.youtube.com/watch?v=ZeJlh0vhcFc"
-    method: yt-dlp
-    license: "YouTube"
-    trim: {start: 0, duration: 10}
-
   - id: ugc_4k_kpop_dance
     vertical: ugc
     name: "K-pop Dance Performance 4K"
