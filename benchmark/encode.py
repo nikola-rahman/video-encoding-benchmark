@@ -180,6 +180,8 @@ def main():
     parser.add_argument("--max-steps", type=int, default=8, help="Max search steps (default: 8)")
     parser.add_argument("--vmaf-threads", type=int, default=8, help="VMAF threads per measurement (default: 8)")
     parser.add_argument("--vmaf-workers", type=int, default=8, help="Max concurrent VMAF measurements (default: 8)")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="Max concurrent tasks for cloud providers (default: all tasks in parallel; set lower to avoid API rate limits, e.g. 6 for MediaConvert)")
     parser.add_argument("--config", default=None, help="Path to benchmark.yaml")
     parser.add_argument("--skip-completed", action="store_true",
                         help="Skip (provider, clip, codec, target) tuples already converged in data/results/run_*.jsonl")
@@ -238,6 +240,9 @@ def main():
     if any(p in local_providers for p in args.provider):
         max_workers = 1
         print(f"Note: local provider ({', '.join(set(args.provider) & local_providers)}) detected; running tasks serially.")
+    elif args.workers is not None:
+        max_workers = max(1, args.workers)
+        print(f"Note: cloud providers capped to {max_workers} concurrent worker(s) per --workers flag.")
     else:
         max_workers = len(tasks)
 
