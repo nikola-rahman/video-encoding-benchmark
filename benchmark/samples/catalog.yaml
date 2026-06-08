@@ -99,6 +99,7 @@ sources:
     url: "https://www.youtube.com/watch?v=xck6vJpmevY"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_pasta_asmr
     vertical: ugc
@@ -106,6 +107,7 @@ sources:
     url: "https://www.youtube.com/watch?v=IkalikR-pFs"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_battlefield_gameplay
     vertical: ugc
@@ -113,6 +115,7 @@ sources:
     url: "https://www.youtube.com/watch?v=ZZYuIgDB32o"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_switzerland_drone
     vertical: ugc
@@ -120,6 +123,7 @@ sources:
     url: "https://www.youtube.com/watch?v=LQuLAbG62vY"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_monaco_walk
     vertical: ugc
@@ -127,6 +131,7 @@ sources:
     url: "https://www.youtube.com/watch?v=oS-rwVafano"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_wood_bed_diy
     vertical: ugc
@@ -134,6 +139,7 @@ sources:
     url: "https://www.youtube.com/watch?v=huolENgWowc"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_gym_motivation
     vertical: ugc
@@ -141,6 +147,7 @@ sources:
     url: "https://www.youtube.com/watch?v=mpL7e0_jLXQ"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_football_highlights
     vertical: ugc
@@ -148,6 +155,7 @@ sources:
     url: "https://www.youtube.com/watch?v=ZeJlh0vhcFc"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_kpop_dance
     vertical: ugc
@@ -155,6 +163,7 @@ sources:
     url: "https://www.youtube.com/watch?v=qORaYudQ7Zc"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   - id: ugc_4k_skating_fpv
     vertical: ugc
@@ -162,6 +171,7 @@ sources:
     url: "https://www.youtube.com/watch?v=vSBcrmx4aFw"
     method: yt-dlp
     license: "YouTube"
+    trim: {start: 0, duration: 30}
 
   # ── Archives ──────────────────────────────────────────────────
 
