@@ -133,14 +133,6 @@ sources:
     license: "YouTube"
     trim: {start: 0, duration: 10}
 
-  - id: ugc_4k_wood_bed_diy
-    vertical: ugc
-    name: "Handmade Wood Bed DIY 4K"
-    url: "https://www.youtube.com/watch?v=huolENgWowc"
-    method: yt-dlp
-    license: "YouTube"
-    trim: {start: 0, duration: 10}
-
   - id: ugc_4k_gym_motivation
     vertical: ugc
     name: "Gym Motivation 4K"
