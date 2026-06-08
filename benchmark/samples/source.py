@@ -85,8 +85,17 @@ def _find_ytdlp() -> str:
 
 def download_ytdlp(url: str, output_path: Path) -> None:
     ytdlp = _find_ytdlp()
+    # Only fetch the first ~130s — preprocessing trims to 120s with a small
+    # buffer. Avoids multi-GB downloads of long 4K source videos when we
+    # only keep two minutes.
     result = subprocess.run(
-        [ytdlp, "--merge-output-format", "mp4", "-o", str(output_path), url],
+        [
+            ytdlp,
+            "--download-sections", "*0-130",
+            "--merge-output-format", "mp4",
+            "-o", str(output_path),
+            url,
+        ],
         capture_output=True, text=True,
     )
     if result.returncode != 0:

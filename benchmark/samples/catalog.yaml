@@ -91,6 +91,78 @@ sources:
     method: yt-dlp
     license: "YouTube"
 
+  # ── UGC (4K) ──────────────────────────────────────────────────
+
+  - id: ugc_4k_vienna_shortfilm
+    vertical: ugc
+    name: "Vienna 4K Cinematic Shortfilm"
+    url: "https://www.youtube.com/watch?v=xck6vJpmevY"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_pasta_asmr
+    vertical: ugc
+    name: "Chicken Alfredo ASMR Cooking 4K"
+    url: "https://www.youtube.com/watch?v=IkalikR-pFs"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_battlefield_gameplay
+    vertical: ugc
+    name: "Battlefield 6 PS5 Gameplay 4K"
+    url: "https://www.youtube.com/watch?v=ZZYuIgDB32o"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_switzerland_drone
+    vertical: ugc
+    name: "Switzerland 4K FPV Drone"
+    url: "https://www.youtube.com/watch?v=LQuLAbG62vY"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_monaco_walk
+    vertical: ugc
+    name: "Monte Carlo Monaco Walking Tour 4K"
+    url: "https://www.youtube.com/watch?v=oS-rwVafano"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_wood_bed_diy
+    vertical: ugc
+    name: "Handmade Wood Bed DIY 4K"
+    url: "https://www.youtube.com/watch?v=huolENgWowc"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_gym_motivation
+    vertical: ugc
+    name: "Gym Motivation 4K"
+    url: "https://www.youtube.com/watch?v=mpL7e0_jLXQ"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_football_highlights
+    vertical: ugc
+    name: "Football Champions Cup Highlights 4K"
+    url: "https://www.youtube.com/watch?v=ZeJlh0vhcFc"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_kpop_dance
+    vertical: ugc
+    name: "K-pop Dance Performance 4K"
+    url: "https://www.youtube.com/watch?v=qORaYudQ7Zc"
+    method: yt-dlp
+    license: "YouTube"
+
+  - id: ugc_4k_skating_fpv
+    vertical: ugc
+    name: "FPV Skating Switzerland 4K"
+    url: "https://www.youtube.com/watch?v=vSBcrmx4aFw"
+    method: yt-dlp
+    license: "YouTube"
+
   # ── Archives ──────────────────────────────────────────────────
 
   - id: archive_desoto_1955
