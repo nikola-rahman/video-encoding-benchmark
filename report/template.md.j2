@@ -290,6 +290,11 @@ Across 22 clips and three VMAF targets, no single encoder wins everything. Each 
 |------|---------|-----------|------------|-------:|--------------|
 {% for c in clip_provenance | sort(attribute='clip') %}| {{ c.clip }} | {{ c.license }} | {{ c.source_url if c.source_url and c.source_url != "-" else "(restricted dataset)" }} | {{ c.resolution }} | {{ c.frame_count }} | {{ c.pix_fmt }} |
 {% endfor %}
+
+### Appendix C: Glossary
+
+| Term | Definition |
+|------|------------|
 | **P-frame** | Predicted frame. References previous frames to achieve higher compression. |
 | **B-frame** | Bidirectionally predicted frame. References both previous and future frames for maximum compression. |
 | **RD curve** | Rate-Distortion curve. Plots quality (VMAF) against bitrate. A curve closer to the top-left is more efficient. |

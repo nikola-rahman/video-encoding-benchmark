@@ -40,9 +40,13 @@ table {
     margin: 1em 0;
     width: 100%;
     font-size: 9.5pt;
-    page-break-inside: avoid;
+    /* Large tables (e.g., Appendix B clip provenance) should be allowed to
+       span pages — page-break-inside: avoid was forcing the heading + the
+       entire 30-row table onto the next page, leaving blank space. */
+    page-break-inside: auto;
     table-layout: fixed;
 }
+tr { page-break-inside: avoid; }
 th, td {
     border: 1px solid #ccc;
     padding: 6px 10px;

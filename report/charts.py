@@ -44,7 +44,12 @@ plt.rcParams.update({
     "axes.facecolor": "white",
     "axes.grid": True,
     "grid.alpha": 0.3,
-    "font.size": 11,
+    "font.size": 13,
+    "axes.labelsize": 12,
+    "axes.titlesize": 13,
+    "xtick.labelsize": 11,
+    "ytick.labelsize": 11,
+    "legend.fontsize": 10,
     "figure.dpi": 150,
 })
 
@@ -1482,22 +1487,27 @@ def gen_storage_projection(results, clips, config, figures_dir):
     for i, vid in enumerate(vids):
         ax = axes[i // cols][i % cols]
         entries = sorted(by_vertical[vid], key=lambda e: (e["provider"], e["codec"]))
-        labels = [f"{e['provider']}\n{e['codec']}" for e in entries]
+        short = {
+            "AWS MediaConvert": "AWS MC",
+            "Brightcove Zencoder": "Zencoder",
+            "FFmpeg (naive)": "FFmpeg",
+        }
+        labels = [f"{short.get(e['provider'], e['provider'])} {e['codec']}" for e in entries]
         costs = [e["annual_cost"] for e in entries]
         colors = [get_color(e["provider"]) for e in entries]
         bars = ax.bar(range(len(entries)), costs, color=colors, edgecolor="white", linewidth=0.5)
         for bar, e in zip(bars, entries):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
                     f"${e['annual_cost']:,.0f}\n({e['total_tb']:.2f} TB)",
-                    ha="center", va="bottom", fontsize=8)
+                    ha="center", va="bottom", fontsize=9)
         ax.axhline(y=baseline_cost, color="#888", linestyle="--", linewidth=1.2)
         ax.text(len(entries) - 0.5, baseline_cost,
                 f"  no re-encoding: ${baseline_cost:,.0f} ({baseline_tb:.2f} TB)",
-                color="#444", fontsize=8, va="center", ha="right",
+                color="#444", fontsize=9, va="center", ha="right",
                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white",
                           edgecolor="#bbb", alpha=0.9))
         ax.set_xticks(range(len(entries)))
-        ax.set_xticklabels(labels, fontsize=8)
+        ax.set_xticklabels(labels, fontsize=10, rotation=90, ha="center")
         ax.set_title(vertical_names.get(vid, vid), fontweight="bold")
         ax.set_ylabel("Annual S3 cost ($)")
         ax.grid(axis="y", alpha=0.3)
