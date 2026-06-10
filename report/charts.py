@@ -993,7 +993,7 @@ def gen_encoding_speed_total(speed_summary, config, figures_dir):
     codec_labels = {"av1": "AV1", "h265": "H.265"}
     providers = sorted({s["name"] for s in speed_summary})
 
-    by_pc = {(s["name"], s["codec"]): s["avg_total_s"] for s in speed_summary}
+    by_pc = {(s["name"], s["codec"]): s["avg_total_xrt"] for s in speed_summary}
 
     fig, ax = plt.subplots(figsize=(11, max(4, len(providers) * 0.6)))
     y = np.arange(len(providers))
@@ -1010,12 +1010,12 @@ def gen_encoding_speed_total(speed_summary, config, figures_dir):
             if v > 0:
                 ax.text(bar.get_width() + max(vals) * 0.01,
                         bar.get_y() + bar.get_height() / 2,
-                        f"{v:.0f}s", va="center", fontsize=9)
+                        f"{v:.2f}×", va="center", fontsize=9)
 
     ax.set_yticks(y)
     ax.set_yticklabels(providers)
     ax.invert_yaxis()
-    ax.set_xlabel("Average total wall-clock to target VMAF (seconds)")
+    ax.set_xlabel("Average total wall-clock to target VMAF (× realtime)")
     ax.set_title("Total time to converge per provider (lower is better)")
     ax.legend(fontsize=10)
     ax.grid(axis="x", alpha=0.3)

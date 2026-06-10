@@ -324,7 +324,12 @@ def build_vertical_data(results: list[dict], clips: list[dict]) -> dict:
     return dict(data)
 
 
-VIDAIO_PER_PASS_S = 133.0
+# Vidaio measured average per-encode wall-clock (single pass; no search loop
+# on their side). Confirmed by Vidaio: 2026-05-05 1080p UGC run hit 25210.5s
+# over 126 successes (≈ 200s / encode); 2026-06-08 4K UGC run averaged
+# ~3.37 min over 48 queries (≈ 202s). The number is essentially flat across
+# resolutions — Vidaio's pipeline overhead dominates compute time.
+VIDAIO_PER_PASS_S = 200.0
 
 
 def _iqr_filter(values: list[float]) -> list[float]:
@@ -339,15 +344,31 @@ def _iqr_filter(values: list[float]) -> list[float]:
 
 
 def build_speed_summary(events: list[dict], config: dict) -> list[dict]:
-    """Per-(provider, codec) wall-clock encoding speed from JSONL events.
+    """Per-(provider, codec) encoding speed, expressed as × realtime
+    (compute-seconds / source-seconds).
 
     Pairs each converged search_complete with its preceding search_start,
-    derives total search time and per-pass time, then trims outliers via
-    1.5× IQR. Vidaio uses a fixed measured per-pass mean (single encode).
+    normalises by source duration (from clip_metadata.csv) so 1080p 120s
+    and 4K 10s clips are directly comparable, then trims outliers via
+    1.5× IQR. Vidaio uses a fixed measured per-encode wall-clock (single
+    pass, no search loop) — see VIDAIO_PER_PASS_S — applied per clip so
+    Vidaio's xRT also reflects the duration mix in the corpus.
     """
     from datetime import datetime as _dt
+    from pathlib import Path
 
     provider_names = build_provider_name_map(config)
+
+    # Load clip → source duration map (clip_metadata.csv)
+    clip_duration: dict[str, float] = {}
+    cmd_path = Path(__file__).parent / "data" / "clip_metadata.csv"
+    if cmd_path.exists():
+        for r in load_csv(cmd_path):
+            try:
+                clip_duration[r["clip"]] = float(r["duration_s"])
+            except (KeyError, TypeError, ValueError):
+                continue
+
     starts: dict = {}
     completes: dict = {}
     for e in events:
@@ -371,11 +392,17 @@ def build_speed_summary(events: list[dict], config: dict) -> list[dict]:
                     best_s, best_st = s, st
             if best_s is None:
                 continue
+            clip_stem = c.get("clip", "").replace(".mp4", "")
+            dur = clip_duration.get(clip_stem)
+            if not dur or dur <= 0:
+                continue
             elapsed = (ct - best_st).total_seconds()
             steps = max(c.get("steps", 1), 1)
             rows.append({
                 "provider": key[0], "codec": key[2],
-                "total_s": elapsed, "per_pass_s": elapsed / steps, "steps": steps,
+                "total_xrt": elapsed / dur,
+                "per_pass_xrt": (elapsed / steps) / dur,
+                "steps": steps,
             })
 
     by_pc: dict = defaultdict(list)
@@ -384,8 +411,12 @@ def build_speed_summary(events: list[dict], config: dict) -> list[dict]:
 
     summary = []
     for (pid, codec), group in sorted(by_pc.items()):
-        per_pass = _iqr_filter([r["per_pass_s"] for r in group])
-        total = _iqr_filter([r["total_s"] for r in group])
+        # Plain mean, no IQR trim — the corpus mixes 1080p and 4K clips,
+        # which is bimodal in xRT (4K is structurally slower), so IQR was
+        # stripping legitimate 4K samples as "outliers" and biasing the
+        # average down toward the 1080p subset.
+        per_pass = [r["per_pass_xrt"] for r in group]
+        total = [r["total_xrt"] for r in group]
         steps_vals = [r["steps"] for r in group]
         summary.append({
             "provider_id": pid,
@@ -393,19 +424,26 @@ def build_speed_summary(events: list[dict], config: dict) -> list[dict]:
             "codec": codec,
             "n": len(group),
             "n_clean": len(per_pass),
-            "avg_per_pass_s": sum(per_pass) / len(per_pass) if per_pass else 0,
-            "avg_total_s": sum(total) / len(total) if total else 0,
+            "avg_per_pass_xrt": sum(per_pass) / len(per_pass) if per_pass else 0,
+            "avg_total_xrt": sum(total) / len(total) if total else 0,
             "avg_steps": sum(steps_vals) / len(steps_vals) if steps_vals else 0,
         })
 
+    # Vidaio: per-encode wall-clock is roughly flat (VIDAIO_PER_PASS_S);
+    # apply it per clip in the corpus so xRT mirrors the duration mix.
+    if clip_duration:
+        vidaio_xrt = [VIDAIO_PER_PASS_S / d for d in clip_duration.values() if d > 0]
+        vidaio_avg = sum(vidaio_xrt) / len(vidaio_xrt) if vidaio_xrt else 0
+    else:
+        vidaio_avg = 0
     for codec in ("h265", "av1"):
         summary.append({
             "provider_id": "vidaio",
             "name": provider_names.get("vidaio", "Vidaio"),
             "codec": codec,
             "n": None, "n_clean": None,
-            "avg_per_pass_s": VIDAIO_PER_PASS_S,
-            "avg_total_s": VIDAIO_PER_PASS_S,
+            "avg_per_pass_xrt": vidaio_avg,
+            "avg_total_xrt": vidaio_avg,
             "avg_steps": 1.0,
         })
 
