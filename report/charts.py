@@ -1537,7 +1537,22 @@ def generate_all(config_path=DEFAULT_CONFIG):
     figures_dir.mkdir(parents=True, exist_ok=True)
 
     all_results = load_csv(report_dir / config["data"]["results"])
-    results = [r for r in all_results if r.get("converged")]
+    # Figures that show "delivered at target" (RD curves, percentiles, storage,
+    # TCO, quadrant) include any encode within plot_vmaf_tolerance of its target,
+    # not just strictly-converged rows. This keeps providers that single-pass
+    # land a fraction below target (e.g. Vidaio on low-motion security content,
+    # all within 1.5 VMAF) visible on the curves, consistent with the report's
+    # "100% within 1.5 VMAF" framing. Strict pass-rate accounting (§4.3, BD-Rate
+    # success counts) is computed separately from `converged` and is unaffected.
+    plot_tol = float(config.get("plot_vmaf_tolerance", 1.5))
+
+    def _within_plot_tolerance(r):
+        v = r.get("vmaf_harmonic_mean")
+        if v is None:
+            return False
+        return float(v) >= float(r["target_vmaf"]) - plot_tol
+
+    results = [r for r in all_results if _within_plot_tolerance(r)]
     clips = load_csv(report_dir / config["data"]["clip_metadata"])
     encoding_times = load_csv(report_dir / config["data"]["encoding_times"])
     pricing_rows = load_csv(report_dir / config["data"]["pricing"])

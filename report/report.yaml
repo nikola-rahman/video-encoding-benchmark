@@ -1,10 +1,15 @@
-version: "3.2"
+version: "3.3"
 author: "Nikola Rahman"
 commissioned_by: "Vidaio"
 
 # VMAF thresholds used throughout the report
 vmaf_transparent: 93
 vmaf_indistinguishable: 95
+
+# RD/quality figures plot any encode that landed within this many VMAF
+# points of its target (delivered-at-target). Strict pass-rate accounting
+# (§4.3 target attainment, BD-Rate success counts) is separate and unaffected.
+plot_vmaf_tolerance: 1.5
 
 # S3 storage cost assumption (USD per GB per month)
 storage_cost_per_gb_month: 0.023

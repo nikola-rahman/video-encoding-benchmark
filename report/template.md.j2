@@ -12,14 +12,26 @@
 {% endfor %}
 {%- endmacro %}
 
-{%- macro vertical_section(codec, codec_label, vertical_id, vertical_name, fig_num, fig_name) %}
+{%- macro vertical_section(codec, codec_label, vertical_id, vertical_name, fig_num, fig_name, comment="") %}
 
 #### {{ fig_num }} {{ codec_label }} Results - {{ vertical_name }}
 
 {{ narratives[codec][vertical_id] | d("*Narrative to be written after data analysis.*") }}
 
 {{ figure(fig_name, "Figure " ~ fig_num ~ " - RD Curves, " ~ codec_label ~ ", " ~ vertical_name ~ " Clips") }}
+{% if comment %}*{{ comment }}*
+{% endif %}
 {%- endmacro %}
+
+{#- Per-figure comments for the per-vertical RD charts (§4). Dry, descriptive;
+    where a provider is absent the comment names it and the reason. The AV1
+    Zencoder note is appended per-codec in the §4 loop. -#}
+{%- set vertical_comments = {
+  "ecommerce": "Short product clips with clean studio motion; every encoder reaches the targets, so the curves separate on bitrate alone.",
+  "ugc": "Mixed-complexity user footage including the 4K subset; the curves fan out as content difficulty rises.",
+  "archive": "Grainy archive film: Bitmovin, AWS MediaConvert and Brightcove Zencoder scored VMAF 19-59 (avg 36) against targets of 85+ and fall below the plotted range, leaving only Vidaio and FFmpeg.",
+  "security": "Low-motion surveillance content compresses tightly and the encoders cluster closely."
+} %}
 
 {#- ── Report ───────────────────────────────────────────────────── -#}
 
@@ -61,6 +73,10 @@ Existing video encoding benchmarks evaluate providers through a streaming lens -
 ### Headline findings
 
 Three charts summarise the benchmark: where each provider sits on the two dimensions that drive a buying decision (Figure 1.1), how many bits each provider uses to deliver each VMAF target (Figure 1.2), and how often each provider strictly meets that target (Figure 1.3). Per-codec breakdowns and BD-Rate tables are in §4.
+
+Beyond compression, Vidaio differs in how it works: it hits a VMAF target in a single encode, while every other provider runs an iterative search of several encodes per target. That single-pass workflow is the operational edge in Figure 1.1, and it carries through to lower per-delivered-minute cost (§6) and faster turnaround (§7).
+
+On grainy archive film, only Vidaio and self-hosted FFmpeg reach the quality targets at all — the other managed services (Bitmovin, AWS MediaConvert, Brightcove Zencoder) miss by a wide margin, a limitation visible throughout §4 and §5.
 
 {{ figure("provider_quadrant", "Figure 1.1 - Provider Positioning: Compression Efficiency vs. Convenience") }}
 *X-axis (Compression Efficiency): BD-Rate savings vs the FFmpeg reference, averaged across both codecs — positive means the provider uses fewer bits than FFmpeg at matched quality. Y-axis (Operational Convenience): score from the §1.4 capability matrix (native VMAF targeting, single-encode workflow, managed service, low codec-parameter expertise). Brightcove Zencoder is omitted — H.265 only, not comparable across both codecs.*
@@ -130,6 +146,8 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 **Configurable providers:** For each clip, an interpolation search over each provider's quality parameter finds the setting that hits target VMAF scores ({{ vmaf_targets | join(', ') }}). This produces matched-quality data points for direct comparison.
 
+**Encodes per target — the central methodological asymmetry.** Every provider in this benchmark *except Vidaio* is driven through this iterative VMAF search — typically three to five encodes per target — to find the setting that lands on each score; only the best-fitting encode is reported. Vidaio accepts the target VMAF as a native API input and returns a *single encode*. This cuts both ways. Vidaio cannot iterate to clear a target exactly, so it occasionally lands just below it (almost always within 1 VMAF point — see §4.3); but it reaches that result in one encode rather than three to five, which is what drives the per-target pricing (§6) and encoding-time (§7) gaps. Reported BD-Rate and RD curves use each provider's best on-target encode, so the efficiency comparison is on delivered compression, independent of how many attempts it took.
+
 **FFmpeg (naive) baseline:** In this benchmark "FFmpeg (naive)" is self-hosted FFmpeg with `libx265` (H.265, preset `slow`) and `libsvtav1` (AV1, preset 4), driven by an interpolation search over the single CRF quality knob. No content-aware preset tuning, no smart rate control — the same encoder settings are applied to every clip and only CRF varies between iterations. These are the same open-source encoders that the managed providers (Vidaio included) build their pipelines on; the benchmark is therefore comparing the parameter-selection and search wrappers around the encoders, not the underlying codecs.
 
 ### 3.3 Quality Measurement
@@ -152,7 +170,7 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 {%- set headline = headline_h265 if codec == "h265" else headline_av1 %}
 
-**BD-Rate** is computed on the *intersection* — the (clip, target VMAF) jobs where **every provider** in this codec converged. Reference is **FFmpeg** (the open-source baseline; negative BD-Rate means the provider uses fewer bits than FFmpeg at matched quality). Intersection: **{{ headline.n_jobs }} / {{ headline.universe_size }} jobs**.
+**BD-Rate** is computed on the *intersection* — the (clip, target VMAF) jobs where **every provider** in this codec converged. Reference is **FFmpeg** (the open-source baseline; negative BD-Rate means the provider uses fewer bits than FFmpeg at matched quality). Intersection: **{{ headline.n_jobs }} / {{ headline.universe_size }} jobs**. It is smaller than the full matrix because BD-Rate requires every provider on the same jobs, and the grainy archive clips — where the managed cloud encoders top out near VMAF 36, far below target (§{{ sec_base }}.5) — drop out for all of them.
 
 | Provider | Avg VMAF | BD-Rate vs. FFmpeg | Rank |
 |----------|----------|---------------------|------|
@@ -170,8 +188,9 @@ Streaming encoders typically use short GOPs (2-4 seconds) to enable segment-base
 
 {% for v in verticals %}
 {% set v_num = loop.index + 1 %}
+{% set zen_note = " Brightcove Zencoder encodes H.265 only and is absent from AV1 charts." if codec == "av1" and v.id != "archive" else "" %}
 
-{{ vertical_section(codec, codec_label, v.id, v.name, sec_base ~ "." ~ (v_num + 1), "rd_" ~ codec ~ "_" ~ v.id) }}
+{{ vertical_section(codec, codec_label, v.id, v.name, sec_base ~ "." ~ (v_num + 1), "rd_" ~ codec ~ "_" ~ v.id, comment = vertical_comments[v.id] ~ zen_note) }}
 {% endfor %}
 {% endfor %}
 
@@ -191,6 +210,7 @@ This section translates rate-distortion data into the metrics that storage-cost 
 What it would cost to store {{ "{:,}".format(storage_projection.hours) }} hours of representative 1080p source ({{ storage_projection.source_bitrate_kbps }} kbps) on S3 (${{ storage_projection.cost_per_gb_month }}/GB/mo) for one year, after encoding through each provider at VMAF {{ storage_projection.target_vmaf | int }}, broken down by vertical. The dashed line shows what storing the raw source without re-encoding would cost.
 
 {{ figure("storage_projection", "Figure 5.1 - Annual Storage Cost per 1000 hours of video") }}
+*Lower delivered bitrate means lower storage cost, so the ranking tracks compression efficiency. Providers that could not reach VMAF 93 on a vertical — the managed encoders on archive — have no bar there.*
 
 ---
 
@@ -230,6 +250,8 @@ All speed values are in **× realtime** (compute-seconds / source-seconds).
 |----------|-------|---------------:|-------:|----------------------:|
 {% for p in speed_summary | sort(attribute='name') %}| {{ p.name }} | {{ p.codec | upper }} | {{ "%.2f" | format(p.avg_per_pass_xrt) }} | {{ "%.1f" | format(p.avg_steps) }} | {{ "%.2f" | format(p.avg_total_xrt) }} |
 {% endfor %}
+
+The **Passes** column is the per-target encode budget from §3.2: Vidaio runs a single encode while the others run an iterative search, so even where per-pass speed is comparable, the search multiplies the others' total time to reach a target.
 
 {{ figure("encoding_speed_total", "Figure 7.1 - Total wall-clock to target VMAF per provider") }}
 *Total compute time to deliver one converged result, normalised by source duration and averaged across the corpus. Lower is faster; below 1.0× means sub-realtime.*
