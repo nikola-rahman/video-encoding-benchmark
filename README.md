@@ -1,5 +1,7 @@
 # Video Compression Benchmark
 
+**Final report: [report.pdf](report.pdf)** (version 3.3, June 2026). `report/REPORT.md` is the template.
+
 Multi-provider video encoding benchmark comparing compression efficiency for archival, e-commerce, UGC, security, and education workloads.
 
 ## Setup
